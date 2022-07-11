@@ -1,109 +1,68 @@
-﻿#include "map_loader.h"
-#include "agents_loader.h"
-#include "egraph_reader.h"
-//#include "ecbs_search.h"
-#include "GICBSSearch.h"
+﻿/* Copyright (C) Jiaoyang Li
+* Unauthorized copying of this file, via any medium is strictly prohibited
+* Confidential
+* Written by Jiaoyang Li <jiaoyanl@usc.edu>, May 2020
+*/
 
-#include <string>
-#include <cstring>
-#include <iostream>
-#include <stdlib.h>
-#include <stdio.h>
-#include <vector>
-// #include "ecbs_node.h"
-#include <cstdlib>
-#include <cmath>
-
-#include "boost/program_options.hpp"
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/foreach.hpp>
-#include<boost/tokenizer.hpp>
+/*driver.cpp
+* Solve a MAPF instance on 2D grids.
+*/
+#include <boost/program_options.hpp>
+#include <boost/tokenizer.hpp>
+#include "PBS.h"
 
 
-
-
-namespace pt = boost::property_tree;
-using namespace std;
-
-int main(int argc, char** argv) {
-
+/* Main function */
+int main(int argc, char** argv)
+{
 	namespace po = boost::program_options;
 	// Declare the supported options.
 	po::options_description desc("Allowed options");
 	desc.add_options()
 		("help", "produce help message")
-		("map,m", po::value<std::string>()->required(), "input file for map")
-		("agents,a", po::value<std::string>()->required(), "input file for agents")
-		("output,o", po::value<std::string>()->required(), "output file for schedule")
-		("agentNum,k", po::value<int>()->default_value(0), "number of agents")
-		("fixedOrder,f", po::value<bool>()->default_value(true), "fixed order. true->Prioritized Search, false->PBS")
-	;
 
+		// params for the input instance and experiment settings
+		("map,m", po::value<string>()->required(), "input file for map")
+		("agents,a", po::value<string>()->required(), "input file for agents")
+		("output,o", po::value<string>(), "output file for statistics")
+		("outputPaths", po::value<string>(), "output file for paths")
+		("agentNum,k", po::value<int>()->default_value(0), "number of agents")
+		("cutoffTime,t", po::value<double>()->default_value(7200), "cutoff time (seconds)")
+		("screen,s", po::value<int>()->default_value(1), "screen option (0: none; 1: results; 2:all)")
+		("stats", po::value<bool>()->default_value(false), "write to files some detailed statistics")
+
+		("sipp", po::value<bool>()->default_value(0), "using SIPP as the low-level solver")
+		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
 
 	if (vm.count("help")) {
-		std::cout << desc << std::endl;
+		cout << desc << endl;
 		return 1;
 	}
 
 	po::notify(vm);
+
 	srand((int)time(0));
 
-	// read the map file and construct its two-dim array
-	MapLoader ml(vm["map"].as<string>());
+	///////////////////////////////////////////////////////////////////////////
+	// load the instance
+	Instance instance(vm["map"].as<string>(), vm["agents"].as<string>(),
+		vm["agentNum"].as<int>());
 
-	// read agents' start and goal locations
-	AgentsLoader al(vm["agents"].as<string>(), ml, vm["agentNum"].as<int>());
-
-	// read the egraph --- we don't use highway here
-	EgraphReader egr;
- 
-  bool fixed_prior = vm["fixedOrder"].as<bool>();
-  GICBSSearch icbs(ml, al, 1.0, egr, constraint_strategy::ICBS, fixed_prior);
-  bool res;
-  res = icbs.runGICBSSearch();
-
-  cout << "single agent path finding called: " << icbs.num_single_pathfinding << endl;
-
-
-
-  if (!icbs.node_stat.empty())
-    {
-      ofstream stats;
-      stats.open(vm["output"].as<string>(), ios::app);
-      stats << get<0>(icbs.node_stat.front()) << "," <<
-        get<1>(icbs.node_stat.front()) << "," <<
-        get<2>(icbs.node_stat.front()) << "," <<
-        get<3>(icbs.node_stat.front()) << "," <<
-        get<4>(icbs.node_stat.front()) << "," <<
-        get<5>(icbs.node_stat.front()) << "," <<
-        get<6>(icbs.node_stat.front()) << endl;
-      stats.close();
-      return 0;
-    }
-    std::ifstream infile(vm["output"].as<string>());
-    bool exist = infile.good();
-    infile.close();
-    if (!exist)
-    {
-        ofstream addHeads(vm["output"].as<string>());
-        addHeads << "runtime,#high-level expanded,#high-level generated,#low-level expanded,#low-level generated," <<
-                 "solution cost," <<
-                 "#pathfinding," <<
-                 "preprocessing runtime,solver name,instance name" << endl;
-        addHeads.close();
-    }
-  ofstream stats;
-  stats.open(vm["output"].as<string>(), ios::app);
-  stats << icbs.runtime / CLOCKS_PER_SEC << "," <<
-    icbs.HL_num_expanded << "," << icbs.HL_num_generated << "," <<
-    icbs.LL_num_expanded << "," << icbs.LL_num_generated << "," <<
-    icbs.solution_cost << "," << icbs.num_single_pathfinding << "," <<
-    icbs.pre_runtime / CLOCKS_PER_SEC << ",PBS," <<
-    vm["agents"].as<string>() << endl;
-  stats.close();
+	srand(0);
+    PBS pbs(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>());
+    // run
+    double runtime = 0;
+    pbs.solve(vm["cutoffTime"].as<double>());
+    if (vm.count("output"))
+        pbs.saveResults(vm["output"].as<string>(), vm["agents"].as<string>());
+    if (pbs.solution_found && vm.count("outputPaths"))
+        pbs.savePaths(vm["outputPaths"].as<string>());
+    /*size_t pos = vm["output"].as<string>().rfind('.');      // position of the file extension
+    string output_name = vm["output"].as<string>().substr(0, pos);     // get the name without extension
+    cbs.saveCT(output_name); // for debug*/
+    pbs.clearSearchEngines();
 
 	return 0;
 
