@@ -177,7 +177,7 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
 bool PBS::findPathForSingleAgent(PBSNode& node, const set<int>& higher_agents, int a, Path& new_path)
 {
     clock_t t = clock();
-    new_path = search_engines[a]->findOptimalPath(higher_agents, paths, a);
+    new_path = search_engines[a]->findOptimalPath(higher_agents, paths, a);  //TODO: add runtime check to the low level
     num_LL_expanded += search_engines[a]->num_expanded;
     num_LL_generated += search_engines[a]->num_generated;
     runtime_build_CT += search_engines[a]->runtime_build_CT;

@@ -2,12 +2,12 @@
 A suboptimal solver for Multi-Agent Path Finding
 
 Priority-Based Search (PBS) is an efficient suboptimal algorithm for solving Multi-Agent Path Finding (MAPF).
-More details can be found in the paper at AAAI 2021 [1].
+More details can be found in our paper at AAAI 2021 [1]. 
+(This implementation is not the original code for producing the results in the paper.)
 
-This implementation is not the original code for producing the results in the paper.
-It contains only the PBS algorithm. The SIPP option for the low-level search of PBS is still under development.
-
-The code requires the external library BOOST (https://www.boost.org/). After you installed BOOST and downloaded the source code, go into the directory of the source code and compile it with CMake: 
+The code requires the external library BOOST (https://www.boost.org/). 
+After you installed BOOST and downloaded the source code, 
+go into the directory of the source code and compile it with CMake: 
 ```
 cmake .
 make

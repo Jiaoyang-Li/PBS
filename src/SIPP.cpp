@@ -56,13 +56,11 @@ Path SIPP::findOptimalPath(const set<int>& higher_agents, const vector<Path*>& p
     auto start = new SIPPNode(start_location, 0, max(my_heuristic[start_location], holding_time), nullptr, 0,
                               get<1>(interval), get<1>(interval), get<2>(interval), get<2>(interval));
     min_f_val = max(holding_time, (int)start->getFVal());
-    pushNodeToOpenAndFocal(start);
+    pushNodeToOpen(start);
 
     while (!open_list.empty())
     {
-        updateFocalList(); // update FOCAL if min f-val increased
-        SIPPNode* curr = focal_list.top(); focal_list.pop();
-        open_list.erase(curr->open_handle);
+        auto curr = open_list.top(); open_list.pop();
         curr->in_openlist = false;
         num_expanded++;
 
@@ -94,7 +92,7 @@ Path SIPP::findOptimalPath(const set<int>& higher_agents, const vector<Path*>& p
                 auto next = new SIPPNode(next_location, next_g_val, next_h_val, curr, next_timestep,
                                          next_high_generation, next_high_expansion, next_v_collision, next_conflicts);
                 if (dominanceCheck(next))
-                    pushNodeToOpenAndFocal(next);
+                    pushNodeToOpen(next);
                 else
                     delete next;
             }
@@ -115,7 +113,7 @@ Path SIPP::findOptimalPath(const set<int>& higher_agents, const vector<Path*>& p
             if (curr->location == goal_location)
                 next->wait_at_goal = true;
             if (dominanceCheck(next))
-                pushNodeToOpenAndFocal(next);
+                pushNodeToOpen(next);
             else
                 delete next;
         }
@@ -125,64 +123,6 @@ Path SIPP::findOptimalPath(const set<int>& higher_agents, const vector<Path*>& p
     releaseNodes();
     return path;
 }
-/*Path SIPP::findNoCollisionPath(const ConstraintTable& constraint_table)
-{
-    reset();
-    ReservationTable reservation_table(constraint_table, goal_location);
-    Path path;
-    Interval interval = reservation_table.get_first_safe_interval(start_location);
-    if (get<0>(interval) > 0 or get<2>(interval))
-        return path;
-    auto holding_time = max(constraint_table.getHoldingTime(goal_location, constraint_table.length_min),
-                            constraint_table.getLastCollisionTimestep(goal_location) + 1);
-    // generate start and add it to the OPEN & FOCAL list
-
-    auto start = new SIPPNode(start_location, 0, max(my_heuristic[start_location], holding_time),
-                              nullptr, 0, interval, 0);
-    pushNodeToFocal(start);
-    while (!focal_list.empty())
-    {
-        auto* curr = focal_list.top();
-        focal_list.pop();
-        curr->in_openlist = false;
-        num_expanded++;
-        assert(curr->location >= 0);
-        // check if the popped node is a goal
-        if (curr->location == goal_location && // arrive at the goal location
-            !curr->wait_at_goal && // not wait at the goal location
-            curr->timestep >= holding_time && // the agent can hold the goal location afterward
-            constraint_table.getFutureNumOfCollisions(curr->location, curr->timestep) == 0) // no future collisions
-        {
-            updatePath(curr, path);
-            break;
-        }
-        for (int next_location : instance.getNeighbors(curr->location)) // move to neighboring locations
-        {
-            int next_h_val = my_heuristic[next_location];
-            for (auto& interval : reservation_table.get_safe_intervals(
-                    curr->location, next_location, curr->timestep + 1, get<1>(curr->interval) + 1))
-            {
-                if (get<2>(interval.first))
-                    continue;
-                if (interval.second + next_h_val > constraint_table.length_max)
-                    break;
-                generateChildToFocal(interval.first, curr, next_location, interval.second, next_h_val);
-            }
-        }  // end for loop that generates successors
-        // wait at the current location
-        bool found = reservation_table.find_safe_interval(interval, curr->location, get<1>(curr->interval));
-        if (found and !get<2>(interval))
-        {
-            generateChildToFocal(interval, curr, curr->location, get<0>(interval), curr->h_val);
-        }
-    }  // end while loop
-
-    //if (path.empty())
-    //    printSearchTree();
-    releaseNodes();
-    return path;
-}*/
-
 void SIPP::updateFocalList()
 {
     auto open_head = open_list.top();
@@ -197,7 +137,13 @@ void SIPP::updateFocalList()
         min_f_val = new_min_f_val;
     }
 }
-
+inline void SIPP::pushNodeToOpen(SIPPNode* node)
+{
+    num_generated++;
+    node->open_handle = open_list.push(node);
+    node->in_openlist = true;
+    allNodes_table[node].push_back(node);
+}
 inline void SIPP::pushNodeToOpenAndFocal(SIPPNode* node)
 {
     num_generated++;

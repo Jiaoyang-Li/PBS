@@ -31,7 +31,7 @@ int main(int argc, char** argv)
 		("screen,s", po::value<int>()->default_value(1), "screen option (0: none; 1: results; 2:all)")
 		("stats", po::value<bool>()->default_value(false), "write to files some detailed statistics")
 
-		("sipp", po::value<bool>()->default_value(0), "using SIPP as the low-level solver")
+		("sipp", po::value<bool>()->default_value(1), "using SIPP as the low-level solver")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
