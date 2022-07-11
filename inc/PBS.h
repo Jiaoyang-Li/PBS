@@ -82,6 +82,7 @@ private:
 	// print and save
 	void printResults() const;
 	static void printConflicts(const PBSNode &curr);
+    void printPriorityGraph() const;
 
 	bool validateSolution() const;
 	inline int getAgentLocation(int agent_id, size_t timestep) const;
@@ -91,7 +92,7 @@ private:
 
     void getHigherPriorityAgents(const list<int>::reverse_iterator & p1, set<int>& agents);
     void getLowerPriorityAgents(const list<int>::iterator & p1, set<int>& agents);
-
+    bool hasHigherPriority(int low, int high) const; // return true if agent low is lower than agent high
 
 	// node operators
 	void pushNode(PBSNode* node);
@@ -102,10 +103,9 @@ private:
 	bool generateRoot();
     bool findPathForSingleAgent(PBSNode& node, const set<int>& higher_agents, int a, Path& new_path);
 	void classifyConflicts(PBSNode &parent);
-
 	void update(PBSNode* node);
 	void printPaths() const;
 
     void topologicalSort(list<int>& stack);
-    void topologicalSortUtil(int v, set<int> & visited, list<int> & stack);
+    void topologicalSortUtil(int v, vector<bool> & visited, list<int> & stack);
 };

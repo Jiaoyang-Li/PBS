@@ -54,6 +54,9 @@ bool PBS::solve(double _time_limit)
 
         if (screen > 1)
             cout << "	Expand " << *curr << "	on " << *(curr->conflict) << endl;
+
+        assert(!hasHigherPriority(curr->conflict->a1, curr->conflict->a2) and
+               !hasHigherPriority(curr->conflict->a2, curr->conflict->a1) );
         auto t1 = clock();
         vector<Path*> copy(paths);
         generateChild(0, curr, curr->conflict->a1, curr->conflict->a2);
@@ -74,6 +77,8 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
     node->constraint.set(low, high);
     priority_graph[high][low] = false;
     priority_graph[low][high] = true;
+    if (screen > 2)
+        printPriorityGraph();
     topologicalSort(ordered_agents);
     if (screen > 2)
     {
@@ -89,18 +94,52 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
         topological_orders[a] = i;
         i--;
     }
+
     std::priority_queue<pair<int, int>> to_replan; // <position in ordered_agents, agent id>
+    vector<bool> lookup_table(num_of_agents, false);
     to_replan.emplace(topological_orders[low], low);
-    set<int> lookup_table;
-    lookup_table.insert(low);
-    map<int, set<int>> comparable_agents;
+    lookup_table[low] = true;
+    { // find conflicts where one agent is higher than high and the other agent is lower than low
+        set<int> higher_agents;
+        auto p = ordered_agents.rbegin();
+        std::advance(p, topological_orders[high]);
+        assert(*p == high);
+        getHigherPriorityAgents(p, higher_agents);
+        higher_agents.insert(high);
+
+        set<int> lower_agents;
+        auto p2 = ordered_agents.begin();
+        std::advance(p2, num_of_agents - 1 - topological_orders[low]);
+        assert(*p2 == low);
+        getLowerPriorityAgents(p2, lower_agents);
+
+        for (const auto & conflict : node->conflicts)
+        {
+            int a1 = conflict->a1;
+            int a2 = conflict->a2;
+            if (a1 == low or a2 == low)
+                continue;
+            if (topological_orders[a1] > topological_orders[a2])
+            {
+                std::swap(a1, a2);
+            }
+            if (lower_agents.find(a1) != lower_agents.end() and higher_agents.find(a2) != higher_agents.end())
+            {
+                to_replan.emplace(topological_orders[a1], a1);
+                lookup_table[a1] = true;
+            }
+        }
+    }
+
+
+
 
     while(!to_replan.empty())
     {
         int a, rank;
         tie(rank, a) = to_replan.top();
         to_replan.pop();
-        lookup_table.erase(a);
+        lookup_table[a] = false;
         if (screen > 2) cout << "Replan agent " << a << endl;
         // Re-plan path
         set<int> higher_agents;
@@ -150,7 +189,7 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
         // Find new conflicts
         for (auto a2 = 0; a2 < num_of_agents; a2++)
         {
-            if (a2 == a or lookup_table.count(a2) > 0 or higher_agents.count(a2) > 0) // already in to_replan or has higher priority
+            if (a2 == a or lookup_table[a2] or higher_agents.count(a2) > 0) // already in to_replan or has higher priority
                 continue;
             auto t = clock();
             if (hasConflicts(a, a2))
@@ -161,7 +200,7 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
                     if (screen > 1)
                         cout << "\t" << a2 << " needs to be replanned due to collisions with " << a << endl;
                     to_replan.emplace(topological_orders[a2], a2);
-                    lookup_table.insert(a2);
+                    lookup_table[a2] = true;
                 }
             }
             runtime_detect_conflicts += (double)(clock() - t) / CLOCKS_PER_SEC;
@@ -336,6 +375,19 @@ void PBS::printPaths() const
 	}
 }
 
+void PBS::printPriorityGraph() const
+{
+    cout << "Priority graph:";
+    for (int a1 = 0; a1 < num_of_agents; a1++)
+    {
+        for (int a2 = 0; a2 < num_of_agents; a2++)
+        {
+            if (priority_graph[a1][a2])
+                cout << a1 << "<" << a2 << ",";
+        }
+    }
+    cout << endl;
+}
 
 void PBS::printResults() const
 {
@@ -707,38 +759,30 @@ void PBS::clear()
 void PBS::topologicalSort(list<int>& stack)
 {
     stack.clear();
-    set<int> visited;
+    vector<bool> visited(num_of_agents, false);
 
     // Call the recursive helper function to store Topological
     // Sort starting from all vertices one by one
-    std::queue<int> pts;
     for (int i = 0; i < num_of_agents; i++)
     {
-        pts.emplace(i);
+        if (!visited[i])
+            topologicalSortUtil(i, visited, stack);
     }
-    while(!pts.empty())
-    {
-        auto p = pts.front();
-        pts.pop();
-        if (visited.find(p) == visited.end())
-            topologicalSortUtil(p, visited, stack);
-    }
-    stack.reverse();
 }
-void PBS::topologicalSortUtil(int v, set<int> & visited, list<int> & stack)
+void PBS::topologicalSortUtil(int v, vector<bool> & visited, list<int> & stack)
 {
     // Mark the current node as visited.
-    visited.insert(v);
+    visited[v] = true;
 
     // Recur for all the vertices adjacent to this vertex
     assert(!priority_graph.empty());
     for (int i = 0; i < num_of_agents; i++)
     {
-        if (priority_graph[v][i] and visited.find(i) == visited.end())
+        if (priority_graph[v][i] and !visited[i])
             topologicalSortUtil(i, visited, stack);
     }
     // Push current vertex to stack which stores result
-    stack.push_front(v);
+    stack.push_back(v);
 }
 void PBS::getHigherPriorityAgents(const list<int>::reverse_iterator & p1, set<int>& higher_agents)
 {
@@ -767,4 +811,25 @@ void PBS::getLowerPriorityAgents(const list<int>::iterator & p1, set<int>& lower
             }
         }
     }
+}
+
+bool PBS::hasHigherPriority(int low, int high) const // return true if agent low is lower than agent high
+{
+    std::queue<int> Q;
+    vector<bool> visited(num_of_agents, false);
+    visited[low] = false;
+    Q.push(low);
+    while(!Q.empty())
+    {
+        auto n = Q.front();
+        Q.pop();
+        if (n == high)
+            return true;
+        for (int i = 0; i < num_of_agents; i++)
+        {
+            if (priority_graph[n][i] and !visited[i])
+                Q.push(i);
+        }
+    }
+    return false;
 }
