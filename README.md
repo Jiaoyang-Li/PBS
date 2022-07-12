@@ -2,7 +2,7 @@
 A suboptimal solver for Multi-Agent Path Finding
 
 Priority-Based Search (PBS) is an efficient suboptimal algorithm for solving Multi-Agent Path Finding (MAPF).
-More details can be found in our paper at AAAI 2021 [1]. 
+More details can be found in our paper at AAAI 2019 [1]. 
 (This implementation is not the original code for producing the results in the paper.)
 
 The implementation provides a SIPP option that uses SIPPS [2] (instead of state-time A*) 
