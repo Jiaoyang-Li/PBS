@@ -90,8 +90,8 @@ private:
 	vector<int> shuffleAgents() const;  //generate random permuattion of agent indices
 	bool terminate(PBSNode* curr); // check the stop condition and return true if it meets
 
-    void getHigherPriorityAgents(const list<int>::reverse_iterator & p1, set<int>& agents);
-    void getLowerPriorityAgents(const list<int>::iterator & p1, set<int>& agents);
+    void getHigherPriorityAgents(const list<int>::reverse_iterator & p1, set<int>& higher_agents);
+    void getLowerPriorityAgents(const list<int>::iterator & p1, set<int>& lower_agents);
     bool hasHigherPriority(int low, int high) const; // return true if agent low is lower than agent high
 
 	// node operators

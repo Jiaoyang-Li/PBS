@@ -88,8 +88,8 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
         cout << endl;
     }
     vector<int> topological_orders(num_of_agents); // map agent i to its position in ordered_agents
-    auto i = num_of_agents - 1;
-    for (const auto & a : ordered_agents)
+    int i = num_of_agents - 1;
+    for (const int & a : ordered_agents)
     {
         topological_orders[a] = i;
         i--;
@@ -798,16 +798,16 @@ void PBS::getHigherPriorityAgents(const list<int>::reverse_iterator & p1, set<in
         }
     }
 }
-void PBS::getLowerPriorityAgents(const list<int>::iterator & p1, set<int>& lower_subplans)
+void PBS::getLowerPriorityAgents(const list<int>::iterator & p1, set<int>& lower_agents)
 {
     for (auto p2 = std::next(p1); p2 != ordered_agents.end(); ++p2)
     {
         if (priority_graph[*p2][*p1])
         {
-            auto ret = lower_subplans.insert(*p2);
+            auto ret = lower_agents.insert(*p2);
             if (ret.second) // insert successfully
             {
-                getLowerPriorityAgents(p2, lower_subplans);
+                getLowerPriorityAgents(p2, lower_agents);
             }
         }
     }
