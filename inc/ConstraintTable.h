@@ -1,6 +1,8 @@
 #pragma once
 #include "common.h"
 #include "PBSNode.h"
+// #include "PathTable.h"
+
 class ConstraintTable
 {
 public:
@@ -8,6 +10,8 @@ public:
     int length_max = MAX_TIMESTEP;
     size_t num_col;
     size_t map_size;
+    // const PathTable * path_table_for_CT;
+    // const PathTableWC * path_table_for_CAT;
 
     int getHoldingTime(int location, int earliest_timestep) const; // the earliest timestep that the agent can hold the location after earliest_timestep
     int getMaxTimestep() const; // everything is static after the max timestep
@@ -21,6 +25,10 @@ public:
     bool hasEdgeConflict(size_t curr_id, size_t next_id, int next_timestep) const;
     int getFutureNumOfCollisions(int loc, int t) const;
 
+    // ConstraintTable(size_t num_col, size_t map_size, const PathTable* path_table_for_CT = nullptr,
+    //     const PathTableWC * path_table_for_CAT = nullptr) : 
+    //     num_col(num_col), map_size(map_size), path_table_for_CT(path_table_for_CT),
+    //     path_table_for_CAT(path_table_for_CAT) {}
     ConstraintTable(size_t num_col, size_t map_size) : num_col(num_col), map_size(map_size) {}
     ConstraintTable(const ConstraintTable& other) { copy(other); }
     ~ConstraintTable() = default;
@@ -33,6 +41,7 @@ public:
         landmarks.clear();
         cat.clear();
     }
+	// void insert2CT(const list<Constraint>& constraints, int agent); // insert constraints for the given agent to the constraint table
     void insert2CT(const Path& path); // insert a path to the constraint table
     void insert2CT(size_t loc, int t_min, int t_max); // insert a vertex constraint to the constraint table
     void insert2CT(size_t from, size_t to, int t_min, int t_max); // insert an edge constraint to the constraint table

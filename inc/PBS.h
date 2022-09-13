@@ -23,8 +23,6 @@ public:
 	PBSNode* dummy_start = nullptr;
     PBSNode* goal_node = nullptr;
 
-
-
 	bool solution_found = false;
 	int solution_cost = -2;
 
@@ -46,6 +44,7 @@ public:
 	void saveCT(const string &fileName) const; // write the CT to a file
     void savePaths(const string &fileName) const; // write the paths to a file
 	void clear(); // used for rapid random  restart
+
 private:
 	conflict_selection conflict_seletion_rule;
 
@@ -69,7 +68,7 @@ private:
 
 
 	vector<Path*> paths;
-	vector < SingleAgentSolver* > search_engines;  // used to find (single) agents' paths and mdd
+	vector <SingleAgentSolver*> search_engines;  // used to find (single) agents' paths and mdd
 
     bool generateChild(int child_id, PBSNode* parent, int low, int high);
 
@@ -87,7 +86,6 @@ private:
 	bool validateSolution() const;
 	inline int getAgentLocation(int agent_id, size_t timestep) const;
 
-	vector<int> shuffleAgents() const;  //generate random permuattion of agent indices
 	bool terminate(PBSNode* curr); // check the stop condition and return true if it meets
 
     void getHigherPriorityAgents(const list<int>::reverse_iterator & p1, set<int>& higher_agents);

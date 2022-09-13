@@ -99,42 +99,39 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
     vector<bool> lookup_table(num_of_agents, false);
     to_replan.emplace(topological_orders[low], low);
     lookup_table[low] = true;
-    { // find conflicts where one agent is higher than high and the other agent is lower than low
-        set<int> higher_agents;
-        auto p = ordered_agents.rbegin();
-        std::advance(p, topological_orders[high]);
-        assert(*p == high);
-        getHigherPriorityAgents(p, higher_agents);
-        higher_agents.insert(high);
 
-        set<int> lower_agents;
-        auto p2 = ordered_agents.begin();
-        std::advance(p2, num_of_agents - 1 - topological_orders[low]);
-        assert(*p2 == low);
-        getLowerPriorityAgents(p2, lower_agents);
+    // find conflicts where one agent is higher than high and the other agent is lower than low
+    set<int> higher_agents;
+    auto p = ordered_agents.rbegin();
+    std::advance(p, topological_orders[high]);
+    assert(*p == high);
+    getHigherPriorityAgents(p, higher_agents);
+    higher_agents.insert(high);
 
-        for (const auto & conflict : node->conflicts)
+    set<int> lower_agents;
+    auto p2 = ordered_agents.begin();
+    std::advance(p2, num_of_agents - 1 - topological_orders[low]);
+    assert(*p2 == low);
+    getLowerPriorityAgents(p2, lower_agents);
+
+    for (const auto & conflict : node->conflicts)
+    {
+        int a1 = conflict->a1;
+        int a2 = conflict->a2;
+        if (a1 == low or a2 == low)
+            continue;
+        if (topological_orders[a1] > topological_orders[a2])
         {
-            int a1 = conflict->a1;
-            int a2 = conflict->a2;
-            if (a1 == low or a2 == low)
-                continue;
-            if (topological_orders[a1] > topological_orders[a2])
-            {
-                std::swap(a1, a2);
-            }
-            if (lower_agents.find(a1) != lower_agents.end() and higher_agents.find(a2) != higher_agents.end())
-            {
-                to_replan.emplace(topological_orders[a1], a1);
-                lookup_table[a1] = true;
-            }
+            std::swap(a1, a2);  // a1 has smaller priority than a2
+        }
+        if (lower_agents.find(a1) != lower_agents.end() and higher_agents.find(a2) != higher_agents.end())
+        {
+            to_replan.emplace(topological_orders[a1], a1);
+            lookup_table[a1] = true;
         }
     }
 
-
-
-
-    while(!to_replan.empty())
+    while(!to_replan.empty())  // Only replan agents with lower priorities AND has known conflicts
     {
         int a, rank;
         tie(rank, a) = to_replan.top();
