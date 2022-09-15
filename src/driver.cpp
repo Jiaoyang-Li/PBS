@@ -10,6 +10,7 @@
 #include <boost/program_options.hpp>
 #include <boost/tokenizer.hpp>
 #include "PBS.h"
+#include "PBS2.h"
 #include "PP.h"
 
 /* Main function */
@@ -32,7 +33,7 @@ int main(int argc, char** argv)
 		("stats", po::value<bool>()->default_value(false), "write to files some detailed statistics")
 
 		("sipp", po::value<bool>()->default_value(1), "using SIPP as the low-level solver")
-		("pbs", po::value<bool>()->default_value(1), "using PBS or PP as the high-level solver")
+		("solver", po::value<string>()->default_value("PBS"), "Which high-level solver to use")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -53,7 +54,7 @@ int main(int argc, char** argv)
 
 	srand(0);
 
-	if (vm["pbs"].as<bool>())
+	if (vm["solver"].as<string>() == "PBS")
 	{
 		PBS pbs(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>());
 		// run
@@ -68,7 +69,19 @@ int main(int argc, char** argv)
 		cbs.saveCT(output_name); // for debug*/
 		pbs.clearSearchEngines();
 	}
-	else
+	else if (vm["solver"].as<string>() == "PBS2")
+	{
+		PBS2 pbs2(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>());
+		// run
+		double runtime = 0;
+		pbs2.solve(vm["cutoffTime"].as<double>());
+		if (vm.count("output"))
+			pbs2.saveResults(vm["output"].as<string>(), vm["agents"].as<string>());
+		if (pbs2.solution_found && vm.count("outputPaths"))
+			pbs2.savePaths(vm["outputPaths"].as<string>());
+		pbs2.clearSearchEngines();
+	}
+	else if (vm["solver"].as<string>() == "PP")
 	{
 		PP pp(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>());
 		// run
@@ -78,9 +91,6 @@ int main(int argc, char** argv)
 			pp.saveResults(vm["output"].as<string>(), vm["agents"].as<string>());
 		if (pp.solution_found && vm.count("outputPaths"))
 			pp.savePaths(vm["outputPaths"].as<string>());
-		/*size_t pos = vm["output"].as<string>().rfind('.');      // position of the file extension
-		string output_name = vm["output"].as<string>().substr(0, pos);     // get the name without extension
-		cbs.saveCT(output_name); // for debug*/
 		pp.clearSearchEngines();
 	}
 

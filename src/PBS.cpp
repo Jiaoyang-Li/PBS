@@ -189,9 +189,10 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
             if (a2 == a or lookup_table[a2] or higher_agents.count(a2) > 0) // already in to_replan or has higher priority
                 continue;
             auto t = clock();
-            if (hasConflicts(a, a2))
+            int priority = hasConflicts(a, a2);
+            if (priority > 0)
             {
-                node->conflicts.emplace_back(new Conflict(a, a2));
+                node->conflicts.emplace_back(new Conflict(a, a2, priority));
                 if (lower_agents.count(a2) > 0) // has a collision with a lower priority agent
                 {
                     if (screen > 1)
@@ -245,7 +246,7 @@ bool PBS::findPathForSingleAgent(PBSNode& node, const set<int>& higher_agents, i
 }
 
 // takes the paths_found_initially and UPDATE all (constrained) paths found for agents from curr to start
-inline void PBS::update(PBSNode* node)
+void PBS::update(PBSNode* node)
 {
     paths.assign(num_of_agents, nullptr);
     priority_graph.assign(num_of_agents, vector<bool>(num_of_agents, false));
@@ -264,7 +265,7 @@ inline void PBS::update(PBSNode* node)
     assert(getSumOfCosts() == node->cost);
 }
 
-bool PBS::hasConflicts(int a1, int a2) const
+int PBS::hasConflicts(int a1, int a2) const
 {
 	int min_path_length = (int) (paths[a1]->size() < paths[a2]->size() ? paths[a1]->size() : paths[a2]->size());
 	for (int timestep = 0; timestep < min_path_length; timestep++)
@@ -274,7 +275,7 @@ bool PBS::hasConflicts(int a1, int a2) const
 		if (loc1 == loc2 or (timestep < min_path_length - 1 and loc1 == paths[a2]->at(timestep + 1).location
                              and loc2 == paths[a1]->at(timestep + 1).location)) // vertex or edge conflict
 		{
-            return true;
+            return 1;
 		}
 	}
 	if (paths[a1]->size() != paths[a2]->size())
@@ -287,11 +288,11 @@ bool PBS::hasConflicts(int a1, int a2) const
 			int loc2 = paths[a2_]->at(timestep).location;
 			if (loc1 == loc2)
 			{
-				return true; // target conflict
+				return 2; // target conflict
 			}
 		}
 	}
-    return false; // conflict-free
+    return 0; // conflict-free
 }
 bool PBS::hasConflicts(int a1, const set<int>& agents) const
 {
@@ -316,12 +317,6 @@ int PBS::getSumOfCosts() const
    for (const auto & path : paths)
        cost += (int)path->size() - 1;
    return cost;
-}
-inline void PBS::pushNode(PBSNode* node)
-{
-	// update handles
-    open_list.push(node);
-	allNodes_table.push_back(node);
 }
 void PBS::pushNodes(PBSNode* n1, PBSNode* n2)
 {
@@ -627,9 +622,10 @@ bool PBS::generateRoot()
     {
         for (int a2 = a1 + 1; a2 < num_of_agents; a2++)
         {
-            if(hasConflicts(a1, a2))
+            int priority = hasConflicts(a1, a2);
+            if(priority > 0)
             {
-                root->conflicts.emplace_back(new Conflict(a1, a2));
+                root->conflicts.emplace_back(new Conflict(a1, a2, priority));
             }
         }
     }
@@ -655,8 +651,6 @@ inline void PBS::releaseNodes()
 		delete node;
 	allNodes_table.clear();
 }
-
-
 
 /*inline void PBS::releaseOpenListNodes()
 {

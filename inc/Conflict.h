@@ -19,9 +19,12 @@ std::ostream& operator<<(std::ostream& os, const Constraint& constraint);
 
 struct Conflict
 {
+    // First constraint is a1<-a2 (a1 has lower priority than a2), and the second is a1->a2
+    // Do this for partial expansion
 	int a1;
 	int a2;
-    explicit Conflict(int a1 = -1, int a2 = -1): a1(a1), a2(a2) { }
+    int priority;
+    explicit Conflict(int a1=-1, int a2=-1, int priority=-1): a1(a1), a2(a2), priority(priority) {}
 };
 
 std::ostream& operator<<(std::ostream& os, const Conflict& conflict);

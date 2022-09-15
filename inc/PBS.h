@@ -19,6 +19,7 @@ public:
 	uint64_t num_HL_generated = 0;
 	uint64_t num_LL_expanded = 0;
 	uint64_t num_LL_generated = 0;
+	uint64_t num_backtrack = 0;
 
 	PBSNode* dummy_start = nullptr;
     PBSNode* goal_node = nullptr;
@@ -33,7 +34,7 @@ public:
 
 	////////////////////////////////////////////////////////////////////////////////////////////
 	// Runs the algorithm until the problem is solved or time is exhausted 
-	bool solve(double time_limit);
+	virtual bool solve(double _time_limit);
 
 	PBS(const Instance& instance, bool sipp, int screen);
 	void clearSearchEngines();
@@ -45,7 +46,7 @@ public:
     void savePaths(const string &fileName) const; // write the paths to a file
 	void clear(); // used for rapid random  restart
 
-private:
+protected:
 	conflict_selection conflict_seletion_rule;
 
     stack<PBSNode*> open_list;
@@ -55,7 +56,7 @@ private:
     list<int> ordered_agents;
     vector<vector<bool>> priority_graph; // [i][j] = true indicates that i is lower than j
 
-    string getSolverName() const;
+    virtual string getSolverName() const;
 
 	int screen;
 	
@@ -72,7 +73,7 @@ private:
 
     bool generateChild(int child_id, PBSNode* parent, int low, int high);
 
-	bool hasConflicts(int a1, int a2) const;
+	int hasConflicts(int a1, int a2) const;
     bool hasConflicts(int a1, const set<int>& agents) const;
 	shared_ptr<Conflict> chooseConflict(const PBSNode &node) const;
     int getSumOfCosts() const;
@@ -93,11 +94,16 @@ private:
     bool hasHigherPriority(int low, int high) const; // return true if agent low is lower than agent high
 
 	// node operators
-	void pushNode(PBSNode* node);
+	inline void pushNode(PBSNode* node)
+	{
+		// update handles
+    	open_list.push(node);
+		allNodes_table.push_back(node);
+	}
     void pushNodes(PBSNode* n1, PBSNode* n2);
 	PBSNode* selectNode();
 
-		 // high level search
+	// high level search
 	bool generateRoot();
     bool findPathForSingleAgent(PBSNode& node, const set<int>& higher_agents, int a, Path& new_path);
 	void classifyConflicts(PBSNode &parent);
