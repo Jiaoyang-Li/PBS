@@ -4,3 +4,4 @@ cmake*
 .vscode
 build
 hpc
+run_local.sh

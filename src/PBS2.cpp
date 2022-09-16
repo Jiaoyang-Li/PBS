@@ -82,7 +82,7 @@ PBSNode* PBS2::selectNode()
 
 string PBS2::getSolverName() const
 {
-	return "PBSs with " + search_engines[0]->getName();
+	return "PBS2 with " + search_engines[0]->getName();
 }
 
 // shared_ptr<Conflict> PBS2::chooseConflict(const PBSNode &node) const
