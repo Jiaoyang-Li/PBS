@@ -123,7 +123,7 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
             {
                 std::swap(a1, a2);
             }
-            if (lower_agents.find(a1) != lower_agents.end() and higher_agents.find(a2) != higher_agents.end())
+            if (!lookup_table[a1] and lower_agents.find(a1) != lower_agents.end() and higher_agents.find(a2) != higher_agents.end())
             {
                 to_replan.emplace(topological_orders[a1], a1);
                 lookup_table[a1] = true;
