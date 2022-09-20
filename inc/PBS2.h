@@ -12,4 +12,12 @@ protected:
     // shared_ptr<Conflict> chooseConflict(const PBSNode &node) const;
 
 	PBSNode* selectNode();
+    // shared_ptr<Conflict> chooseConflict(const PBSNode &node) const;
+    // void printConflicts(const PBSNode& node)const;
+    // bool terminate(PBSNode* curr);
+
+    // high-level search
+    bool generateRoot(void);
+    bool generateChild(int child_id, PBSNode* parent, int low, int high);
+    int hasConflicts(int a1, int a2) const;
 };

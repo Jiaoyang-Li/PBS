@@ -53,7 +53,7 @@ protected:
 	list<PBSNode*> allNodes_table;
 
 
-    list<int> ordered_agents;
+    list<int> ordered_agents;  // ordered from high priority agents to low priority agents
     vector<vector<bool>> priority_graph; // [i][j] = true indicates that i is lower than j
 
     virtual string getSolverName() const;
@@ -81,7 +81,7 @@ protected:
 
 	// print and save
 	void printResults() const;
-	static void printConflicts(const PBSNode &curr);
+	static void printConflicts(const PBSNode &curr, int num=INT_MAX);
     void printPriorityGraph() const;
 
 	bool validateSolution() const;
@@ -109,6 +109,7 @@ protected:
 	void classifyConflicts(PBSNode &parent);
 	void update(PBSNode* node);
 	void printPaths() const;
+	void printPath(const Path& _path_) const;
 
     void topologicalSort(list<int>& stack);
     void topologicalSortUtil(int v, vector<bool> & visited, list<int> & stack);

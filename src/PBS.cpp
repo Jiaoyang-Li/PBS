@@ -124,7 +124,9 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
         {
             std::swap(a1, a2);  // a1 has smaller priority than a2
         }
-        if (lower_agents.find(a1) != lower_agents.end() and higher_agents.find(a2) != higher_agents.end())
+        if (lower_agents.find(a1) != lower_agents.end() and 
+            higher_agents.find(a2) != higher_agents.end() and
+            !lookup_table[a1])
         {
             to_replan.emplace(topological_orders[a1], a1);
             lookup_table[a1] = true;
@@ -189,10 +191,9 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
             if (a2 == a or lookup_table[a2] or higher_agents.count(a2) > 0) // already in to_replan or has higher priority
                 continue;
             auto t = clock();
-            int priority = hasConflicts(a, a2);
-            if (priority > 0)
+            if (hasConflicts(a, a2))
             {
-                node->conflicts.emplace_back(new Conflict(a, a2, priority));
+                node->conflicts.emplace_back(new Conflict(a, a2));
                 if (lower_agents.count(a2) > 0) // has a collision with a lower priority agent
                 {
                     if (screen > 1)
@@ -222,6 +223,11 @@ bool PBS::findPathForSingleAgent(PBSNode& node, const set<int>& higher_agents, i
     runtime_path_finding += (double)(clock() - t) / CLOCKS_PER_SEC;
     if (new_path.empty())
         return false;
+    if (isSamePath(*paths[a], new_path))
+    {
+        cout << "The path is the same" << endl;
+        printPath(new_path);
+    }
     assert(paths[a] != nullptr and !isSamePath(*paths[a], new_path));
     node.cost += (int)new_path.size() - (int)paths[a]->size();
     if (node.makespan >= paths[a]->size())
@@ -275,7 +281,7 @@ int PBS::hasConflicts(int a1, int a2) const
 		if (loc1 == loc2 or (timestep < min_path_length - 1 and loc1 == paths[a2]->at(timestep + 1).location
                              and loc2 == paths[a1]->at(timestep + 1).location)) // vertex or edge conflict
 		{
-            return 1;
+            return true;
 		}
 	}
 	if (paths[a1]->size() != paths[a2]->size())
@@ -288,12 +294,13 @@ int PBS::hasConflicts(int a1, int a2) const
 			int loc2 = paths[a2_]->at(timestep).location;
 			if (loc1 == loc2)
 			{
-				return 2; // target conflict
+				return true; // target conflict
 			}
 		}
 	}
-    return 0; // conflict-free
+    return false; // conflict-free
 }
+
 bool PBS::hasConflicts(int a1, const set<int>& agents) const
 {
     for (auto a2 : agents)
@@ -303,6 +310,7 @@ bool PBS::hasConflicts(int a1, const set<int>& agents) const
     }
     return false;
 }
+
 shared_ptr<Conflict> PBS::chooseConflict(const PBSNode &node) const
 {
 	if (screen == 3)
@@ -311,6 +319,7 @@ shared_ptr<Conflict> PBS::chooseConflict(const PBSNode &node) const
 		return nullptr;
     return node.conflicts.back();
 }
+
 int PBS::getSumOfCosts() const
 {
    int cost = 0;
@@ -341,6 +350,10 @@ void PBS::pushNodes(PBSNode* n1, PBSNode* n2)
     {
         pushNode(n2);
     }
+    else
+    {
+        num_backtrack++;
+    }
 }
 
 PBSNode* PBS::selectNode()
@@ -365,6 +378,13 @@ void PBS::printPaths() const
 			cout << t.location << "->";
 		cout << endl;
 	}
+}
+
+void PBS::printPath(const Path& _path_) const
+{
+    for (const auto & t : _path_)
+        cout << t.location << "->";
+    cout << endl;
 }
 
 void PBS::printPriorityGraph() const
@@ -440,7 +460,8 @@ void PBS::saveResults(const string &fileName, const string &instanceName) const
 	if (!exist)
 	{
 		ofstream addHeads(fileName);
-		addHeads << "runtime,#high-level expanded,#high-level generated,#low-level expanded,#low-level generated," <<
+		addHeads << "runtime,#high-level expanded,#high-level generated," <<
+            "#low-level expanded,#low-level generated,#backtrack," <<
 			"solution cost,root g value," <<
 			"runtime of detecting conflicts,runtime of building constraint tables,runtime of building CATs," <<
 			"runtime of path finding,runtime of generating child nodes," <<
@@ -448,12 +469,9 @@ void PBS::saveResults(const string &fileName, const string &instanceName) const
 		addHeads.close();
 	}
 	ofstream stats(fileName, std::ios::app);
-	stats << runtime << "," <<
-          num_HL_expanded << "," << num_HL_generated << "," <<
-          num_LL_expanded << "," << num_LL_generated << "," <<
-
-          solution_cost << "," << dummy_start->cost << "," <<
-
+	stats << runtime << "," << num_HL_expanded << "," << num_HL_generated << "," <<
+        num_LL_expanded << "," << num_LL_generated << "," << num_backtrack << "," <<
+        solution_cost << "," << dummy_start->cost << "," <<
 		runtime_detect_conflicts << "," << runtime_build_CT << "," << runtime_build_CAT << "," <<
 		runtime_path_finding << "," << runtime_generate_child << "," <<
 
@@ -547,11 +565,15 @@ void PBS::savePaths(const string &fileName) const
     output.close();
 }
 
-void PBS::printConflicts(const PBSNode &curr)
+void PBS::printConflicts(const PBSNode &curr, int num)
 {
+    int counter = 0;
 	for (const auto& conflict : curr.conflicts)
 	{
 		cout << *conflict << endl;
+        counter ++;
+        if (counter > num)
+            break;
 	}
 }
 
@@ -622,10 +644,9 @@ bool PBS::generateRoot()
     {
         for (int a2 = a1 + 1; a2 < num_of_agents; a2++)
         {
-            int priority = hasConflicts(a1, a2);
-            if(priority > 0)
+            if(hasConflicts(a1, a2))
             {
-                root->conflicts.emplace_back(new Conflict(a1, a2, priority));
+                root->conflicts.emplace_back(new Conflict(a1, a2));
             }
         }
     }
@@ -733,7 +754,6 @@ inline int PBS::getAgentLocation(int agent_id, size_t timestep) const
 	size_t t = max(min(timestep, paths[agent_id]->size() - 1), (size_t)0);
 	return paths[agent_id]->at(t).location;
 }
-
 
 // used for rapid random  restart
 void PBS::clear()

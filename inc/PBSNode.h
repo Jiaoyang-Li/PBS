@@ -8,7 +8,7 @@ struct compare_conflicts
 {
     bool operator()(const shared_ptr<Conflict> c1, const shared_ptr<Conflict> c2) const
     {
-        return c1->priority >= c2->priority;
+        return c1->priority < c2->priority;
     }
 };
 
@@ -28,7 +28,7 @@ public:
 
 	// conflicts in the current paths
 	list<shared_ptr<Conflict> > conflicts;
-    pairing_heap< shared_ptr<Conflict>, compare<compare_conflicts>> pri_conflicts;
+    // pairing_heap< shared_ptr<Conflict>, compare<compare_conflicts>> pri_conflicts;
 	// The chosen conflict
 	shared_ptr<Conflict> conflict;
 
