@@ -1,3 +1,7 @@
 cmake*
 .idea
 *.csv
+.vscode
+build
+hpc
+run_local.sh

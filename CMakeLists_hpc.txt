@@ -18,4 +18,4 @@ add_executable(pbs ${SOURCES})
 # Find Boost
 find_package(Boost REQUIRED COMPONENTS program_options system filesystem)
 include_directories( ${Boost_INCLUDE_DIRS} )
-target_link_libraries(pbs ${Boost_LIBRARIES})
+target_link_libraries(pbs ${Boost_LIBRARIES} -lstdc++ -lm)

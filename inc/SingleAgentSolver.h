@@ -98,6 +98,7 @@ public:
 	const Instance& instance;
 
 	virtual Path findOptimalPath(const set<int>& higher_agents, const vector<Path*>& paths, int agent) = 0;
+    virtual Path findOptimalPath(const ConstraintTable& constraint_table) = 0;
 	virtual string getName() const = 0;
 
 	list<int> getNextLocations(int curr) const; // including itself and its neighbors

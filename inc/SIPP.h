@@ -62,6 +62,7 @@ class SIPP: public SingleAgentSolver
 {
 public:
     Path findOptimalPath(const set<int>& higher_agents, const vector<Path*>& paths, int agent);
+    Path findOptimalPath(const ConstraintTable& constraint_table);
 
     string getName() const { return "SIPP"; }
 

@@ -4,6 +4,13 @@
 
 enum node_selection { NODE_RANDOM, NODE_H, NODE_DEPTH, NODE_CONFLICTS, NODE_CONFLICTPAIRS, NODE_MVC };
 
+struct compare_conflicts
+{
+    bool operator()(const shared_ptr<Conflict> c1, const shared_ptr<Conflict> c2) const
+    {
+        return c1->priority < c2->priority;
+    }
+};
 
 class PBSNode
 {
@@ -11,6 +18,7 @@ public:
 	Constraint constraint; // new constraint
     list< pair< int, Path> > paths; // new paths
     int cost = 0; // sum of costs
+    bool is_expanded = false;
 
 	size_t depth = 0; // depath of this CT node
 	size_t makespan = 0; // makespan over all paths
@@ -20,6 +28,7 @@ public:
 
 	// conflicts in the current paths
 	list<shared_ptr<Conflict> > conflicts;
+    // pairing_heap< shared_ptr<Conflict>, compare<compare_conflicts>> pri_conflicts;
 	// The chosen conflict
 	shared_ptr<Conflict> conflict;
 

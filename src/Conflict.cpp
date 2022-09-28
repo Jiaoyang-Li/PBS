@@ -9,7 +9,7 @@ std::ostream& operator<<(std::ostream& os, const Constraint& constraint)
 
 std::ostream& operator<<(std::ostream& os, const Conflict& conflict)
 {
-	os << "<" << conflict.a1 << "," << conflict.a2 << ">";
+	os << "<" << conflict.a1 << "," << conflict.a2 << ", pri:" << conflict.priority << ", max ic:" << conflict.max_num_ic << ">";
 	return os;
 }
 

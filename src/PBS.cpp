@@ -99,42 +99,41 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
     vector<bool> lookup_table(num_of_agents, false);
     to_replan.emplace(topological_orders[low], low);
     lookup_table[low] = true;
-    { // find conflicts where one agent is higher than high and the other agent is lower than low
-        set<int> higher_agents;
-        auto p = ordered_agents.rbegin();
-        std::advance(p, topological_orders[high]);
-        assert(*p == high);
-        getHigherPriorityAgents(p, higher_agents);
-        higher_agents.insert(high);
 
-        set<int> lower_agents;
-        auto p2 = ordered_agents.begin();
-        std::advance(p2, num_of_agents - 1 - topological_orders[low]);
-        assert(*p2 == low);
-        getLowerPriorityAgents(p2, lower_agents);
+    // find conflicts where one agent is higher than high and the other agent is lower than low
+    set<int> higher_agents;
+    auto p = ordered_agents.rbegin();
+    std::advance(p, topological_orders[high]);
+    assert(*p == high);
+    getHigherPriorityAgents(p, higher_agents);
+    higher_agents.insert(high);
 
-        for (const auto & conflict : node->conflicts)
+    set<int> lower_agents;
+    auto p2 = ordered_agents.begin();
+    std::advance(p2, num_of_agents - 1 - topological_orders[low]);
+    assert(*p2 == low);
+    getLowerPriorityAgents(p2, lower_agents);
+
+    for (const auto & conflict : node->conflicts)
+    {
+        int a1 = conflict->a1;
+        int a2 = conflict->a2;
+        if (a1 == low or a2 == low)
+            continue;
+        if (topological_orders[a1] > topological_orders[a2])
         {
-            int a1 = conflict->a1;
-            int a2 = conflict->a2;
-            if (a1 == low or a2 == low)
-                continue;
-            if (topological_orders[a1] > topological_orders[a2])
-            {
-                std::swap(a1, a2);
-            }
-            if (!lookup_table[a1] and lower_agents.find(a1) != lower_agents.end() and higher_agents.find(a2) != higher_agents.end())
-            {
-                to_replan.emplace(topological_orders[a1], a1);
-                lookup_table[a1] = true;
-            }
+            std::swap(a1, a2);  // a1 has smaller priority than a2
+        }
+        if (lower_agents.find(a1) != lower_agents.end() and 
+            higher_agents.find(a2) != higher_agents.end() and
+            !lookup_table[a1])
+        {
+            to_replan.emplace(topological_orders[a1], a1);
+            lookup_table[a1] = true;
         }
     }
 
-
-
-
-    while(!to_replan.empty())
+    while(!to_replan.empty())  // Only replan agents with lower priorities AND has known conflicts
     {
         int a, rank;
         tie(rank, a) = to_replan.top();
@@ -224,6 +223,11 @@ bool PBS::findPathForSingleAgent(PBSNode& node, const set<int>& higher_agents, i
     runtime_path_finding += (double)(clock() - t) / CLOCKS_PER_SEC;
     if (new_path.empty())
         return false;
+    if (isSamePath(*paths[a], new_path))
+    {
+        cout << "The path is the same" << endl;
+        printPath(new_path);
+    }
     assert(paths[a] != nullptr and !isSamePath(*paths[a], new_path));
     node.cost += (int)new_path.size() - (int)paths[a]->size();
     if (node.makespan >= paths[a]->size())
@@ -248,7 +252,7 @@ bool PBS::findPathForSingleAgent(PBSNode& node, const set<int>& higher_agents, i
 }
 
 // takes the paths_found_initially and UPDATE all (constrained) paths found for agents from curr to start
-inline void PBS::update(PBSNode* node)
+void PBS::update(PBSNode* node)
 {
     paths.assign(num_of_agents, nullptr);
     priority_graph.assign(num_of_agents, vector<bool>(num_of_agents, false));
@@ -267,7 +271,7 @@ inline void PBS::update(PBSNode* node)
     assert(getSumOfCosts() == node->cost);
 }
 
-bool PBS::hasConflicts(int a1, int a2) const
+int PBS::hasConflicts(int a1, int a2) const
 {
 	int min_path_length = (int) (paths[a1]->size() < paths[a2]->size() ? paths[a1]->size() : paths[a2]->size());
 	for (int timestep = 0; timestep < min_path_length; timestep++)
@@ -296,6 +300,7 @@ bool PBS::hasConflicts(int a1, int a2) const
 	}
     return false; // conflict-free
 }
+
 bool PBS::hasConflicts(int a1, const set<int>& agents) const
 {
     for (auto a2 : agents)
@@ -305,6 +310,7 @@ bool PBS::hasConflicts(int a1, const set<int>& agents) const
     }
     return false;
 }
+
 shared_ptr<Conflict> PBS::chooseConflict(const PBSNode &node) const
 {
 	if (screen == 3)
@@ -313,18 +319,13 @@ shared_ptr<Conflict> PBS::chooseConflict(const PBSNode &node) const
 		return nullptr;
     return node.conflicts.back();
 }
+
 int PBS::getSumOfCosts() const
 {
    int cost = 0;
    for (const auto & path : paths)
        cost += (int)path->size() - 1;
    return cost;
-}
-inline void PBS::pushNode(PBSNode* node)
-{
-	// update handles
-    open_list.push(node);
-	allNodes_table.push_back(node);
 }
 void PBS::pushNodes(PBSNode* n1, PBSNode* n2)
 {
@@ -348,6 +349,10 @@ void PBS::pushNodes(PBSNode* n1, PBSNode* n2)
     else if (n2 != nullptr)
     {
         pushNode(n2);
+    }
+    else
+    {
+        num_backtrack++;
     }
 }
 
@@ -373,6 +378,13 @@ void PBS::printPaths() const
 			cout << t.location << "->";
 		cout << endl;
 	}
+}
+
+void PBS::printPath(const Path& _path_) const
+{
+    for (const auto & t : _path_)
+        cout << t.location << "->";
+    cout << endl;
 }
 
 void PBS::printPriorityGraph() const
@@ -448,24 +460,22 @@ void PBS::saveResults(const string &fileName, const string &instanceName) const
 	if (!exist)
 	{
 		ofstream addHeads(fileName);
-		addHeads << "runtime,#high-level expanded,#high-level generated,#low-level expanded,#low-level generated," <<
+		addHeads << "runtime,#high-level expanded,#high-level generated," <<
+            "#low-level expanded,#low-level generated,#backtrack," <<
 			"solution cost,root g value," <<
 			"runtime of detecting conflicts,runtime of building constraint tables,runtime of building CATs," <<
 			"runtime of path finding,runtime of generating child nodes," <<
-			"preprocessing runtime,solver name,instance name" << endl;
+			"preprocessing runtime,runtime of implicit constraints,solver name,instance name" << endl;
 		addHeads.close();
 	}
 	ofstream stats(fileName, std::ios::app);
-	stats << runtime << "," <<
-          num_HL_expanded << "," << num_HL_generated << "," <<
-          num_LL_expanded << "," << num_LL_generated << "," <<
-
-          solution_cost << "," << dummy_start->cost << "," <<
-
+	stats << runtime << "," << num_HL_expanded << "," << num_HL_generated << "," <<
+        num_LL_expanded << "," << num_LL_generated << "," << num_backtrack << "," <<
+        solution_cost << "," << dummy_start->cost << "," <<
 		runtime_detect_conflicts << "," << runtime_build_CT << "," << runtime_build_CAT << "," <<
 		runtime_path_finding << "," << runtime_generate_child << "," <<
-
-		runtime_preprocessing << "," << getSolverName() << "," << instanceName << endl;
+		runtime_preprocessing << "," << runtime_implicit_constraints << "," << 
+        getSolverName() << "," << instanceName << endl;
 	stats.close();
 }
 
@@ -555,11 +565,15 @@ void PBS::savePaths(const string &fileName) const
     output.close();
 }
 
-void PBS::printConflicts(const PBSNode &curr)
+void PBS::printConflicts(const PBSNode &curr, int num)
 {
+    int counter = 0;
 	for (const auto& conflict : curr.conflicts)
 	{
 		cout << *conflict << endl;
+        counter ++;
+        if (counter > num)
+            break;
 	}
 }
 
@@ -659,8 +673,6 @@ inline void PBS::releaseNodes()
 	allNodes_table.clear();
 }
 
-
-
 /*inline void PBS::releaseOpenListNodes()
 {
 	while (!open_list.empty())
@@ -743,7 +755,6 @@ inline int PBS::getAgentLocation(int agent_id, size_t timestep) const
 	return paths[agent_id]->at(t).location;
 }
 
-
 // used for rapid random  restart
 void PBS::clear()
 {
@@ -798,16 +809,16 @@ void PBS::getHigherPriorityAgents(const list<int>::reverse_iterator & p1, set<in
         }
     }
 }
-void PBS::getLowerPriorityAgents(const list<int>::iterator & p1, set<int>& lower_subplans)
+void PBS::getLowerPriorityAgents(const list<int>::iterator & p1, set<int>& lower_agents)
 {
     for (auto p2 = std::next(p1); p2 != ordered_agents.end(); ++p2)
     {
         if (priority_graph[*p2][*p1])
         {
-            auto ret = lower_subplans.insert(*p2);
+            auto ret = lower_agents.insert(*p2);
             if (ret.second) // insert successfully
             {
-                getLowerPriorityAgents(p2, lower_subplans);
+                getLowerPriorityAgents(p2, lower_agents);
             }
         }
     }
