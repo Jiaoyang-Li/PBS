@@ -465,7 +465,7 @@ void PBS::saveResults(const string &fileName, const string &instanceName) const
 			"solution cost,root g value," <<
 			"runtime of detecting conflicts,runtime of building constraint tables,runtime of building CATs," <<
 			"runtime of path finding,runtime of generating child nodes," <<
-			"preprocessing runtime,solver name,instance name" << endl;
+			"preprocessing runtime,runtime of implicit constraints,solver name,instance name" << endl;
 		addHeads.close();
 	}
 	ofstream stats(fileName, std::ios::app);
@@ -474,8 +474,8 @@ void PBS::saveResults(const string &fileName, const string &instanceName) const
         solution_cost << "," << dummy_start->cost << "," <<
 		runtime_detect_conflicts << "," << runtime_build_CT << "," << runtime_build_CAT << "," <<
 		runtime_path_finding << "," << runtime_generate_child << "," <<
-
-		runtime_preprocessing << "," << getSolverName() << "," << instanceName << endl;
+		runtime_preprocessing << "," << runtime_implicit_constraints << "," << 
+        getSolverName() << "," << instanceName << endl;
 	stats.close();
 }
 

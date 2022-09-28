@@ -14,6 +14,7 @@ public:
 	double runtime_path_finding = 0; // runtime of finding paths for single agents
 	double runtime_detect_conflicts = 0;
 	double runtime_preprocessing = 0; // runtime of building heuristic table for the low level
+	double runtime_implicit_constraints = 0; // runtime for computing implicit constraints
 
 	uint64_t num_HL_expanded = 0;
 	uint64_t num_HL_generated = 0;

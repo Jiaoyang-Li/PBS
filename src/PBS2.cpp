@@ -180,7 +180,7 @@ bool PBS2::generateChild(int child_id, PBSNode* parent, int low, int high)
     }
 
     std::priority_queue<pair<int, int>> to_replan; // <position in ordered_agents, agent id>
-    vector<bool> lookup_table(num_of_agents, false);
+    vector<bool> lookup_table(num_of_agents, false);  // True if the agent is in to_replan
     to_replan.emplace(topological_orders[low], low);
     lookup_table[low] = true;
 
@@ -206,7 +206,7 @@ bool PBS2::generateChild(int child_id, PBSNode* parent, int low, int high)
             continue;
         if (topological_orders[a1] > topological_orders[a2])
         {
-            std::swap(a1, a2);  // a1 has smaller priority than a2
+            std::swap(a1, a2);  // a1 always has a smaller priority than a2
         }
         if (lower_agents.find(a1) != lower_agents.end() and 
             higher_agents.find(a2) != higher_agents.end() and
@@ -299,16 +299,6 @@ bool PBS2::generateChild(int child_id, PBSNode* parent, int low, int high)
             int priority = hasConflicts(a, a2);
             if (priority > 0)
             {
-                if (priority == 1)
-                    node->conflicts.emplace_front(new Conflict(a, a2, priority));
-                else if (priority == 2)
-                {
-                    if (paths[a]->size() < paths[a2]->size())
-                        node->conflicts.emplace_back(new Conflict(a, a2, priority));
-                    else
-                        node->conflicts.emplace_back(new Conflict(a2, a, priority));
-                }
-
                 #ifndef DEBUG
                 if (screen > 3)
                 {
@@ -324,10 +314,82 @@ bool PBS2::generateChild(int child_id, PBSNode* parent, int low, int high)
                     to_replan.emplace(topological_orders[a2], a2);
                     lookup_table[a2] = true;
                 }
+                else if (priority == 1)
+                {
+                    node->conflicts.emplace_front(new Conflict(a, a2, priority));
+                }
+                else if (priority == 2)
+                {
+                    if (paths[a]->size() < paths[a2]->size())
+                        node->conflicts.emplace_back(new Conflict(a, a2, priority));
+                    else
+                        node->conflicts.emplace_back(new Conflict(a2, a, priority));
+                }
             }
             runtime_detect_conflicts += (double)(clock() - t) / CLOCKS_PER_SEC;
         }
     }
+
+    // Compute the implicit constraints
+    vector<int> num_higher_ags(num_of_agents, -1);
+    vector<int> num_lower_ags(num_of_agents, -1);
+    list<int>::reverse_iterator ag_rit;
+    list<int>::iterator ag_it;
+    set<int> tmp_agents;
+
+    clock_t t = clock();
+    for (auto& conf : node->conflicts)
+    {
+        if (conf->priority == 2) continue;
+
+        if (num_higher_ags[conf->a1] == -1)
+        {
+            ag_rit = ordered_agents.rbegin();
+            std::advance(ag_rit, topological_orders[conf->a1]);
+            assert(*ag_rit == conf->a1);
+            getHigherPriorityAgents(ag_rit, tmp_agents);
+            num_higher_ags[conf->a1] = (int) tmp_agents.size();
+            tmp_agents.clear();
+        }
+
+        if (num_lower_ags[conf->a1] == -1)
+        {
+            ag_it = ordered_agents.begin();
+            std::advance(ag_it, num_of_agents - 1 - topological_orders[conf->a1]);
+            assert(*ag_it == conf->a1);
+            getLowerPriorityAgents(ag_it, tmp_agents);
+            num_lower_ags[conf->a1] = (int) tmp_agents.size();
+            tmp_agents.clear();
+        }
+
+        if (num_higher_ags[conf->a2] == -1)
+        {
+            ag_rit = ordered_agents.rbegin();
+            std::advance(ag_rit, topological_orders[conf->a2]);
+            assert(*ag_rit == conf->a2);
+            getHigherPriorityAgents(ag_rit, tmp_agents);
+            num_higher_ags[conf->a2] = (int) tmp_agents.size();
+            tmp_agents.clear();
+        }
+
+        if (num_lower_ags[conf->a2] == -1)
+        {
+            ag_it = ordered_agents.begin();
+            std::advance(ag_it, num_of_agents - 1 - topological_orders[conf->a2]);
+            assert(*ag_it == conf->a2);
+            getLowerPriorityAgents(ag_it, tmp_agents);
+            num_lower_ags[conf->a2] = (int) tmp_agents.size();
+            tmp_agents.clear();
+        }
+
+        int num_ic_a1_a2 = (num_higher_ags[conf->a1]+1) * (num_lower_ags[conf->a2]+1);
+        int num_ic_a2_a1 = (num_higher_ags[conf->a2]+1) * (num_lower_ags[conf->a1]+1);
+        conf->max_num_ic = max(num_ic_a1_a2, num_ic_a2_a1);
+        if (num_ic_a1_a2 > num_ic_a2_a1)
+            std::swap(conf->a1, conf->a2);
+    }
+    runtime_implicit_constraints += (double)(clock() - t) / CLOCKS_PER_SEC;
+
     num_HL_generated++;
     node->time_generated = num_HL_generated;
     if (screen > 1)
@@ -352,7 +414,7 @@ int PBS2::hasConflicts(int a1, int a2) const
 			}
 		}
 	}
-    
+
     for (int timestep = 0; timestep < min_path_length; timestep++)
 	{
 		int loc1 = paths[a1]->at(timestep).location;
@@ -364,4 +426,30 @@ int PBS2::hasConflicts(int a1, int a2) const
 		}
 	}
     return 0; // conflict-free
+}
+
+shared_ptr<Conflict> PBS2::chooseConflict(const PBSNode &node) const
+{
+    if (screen == 3)
+    {
+        cout << "------------------------------" << endl;
+        printConflicts(node);
+    }
+
+    if (node.conflicts.empty())
+        return nullptr;
+
+    shared_ptr<Conflict> out = node.conflicts.back();
+    if (out->priority == 2)
+        return out;
+    for (const auto& conf : node.conflicts)
+        if (out->max_num_ic < conf->max_num_ic)
+            out = conf;
+    if (screen == 3 && out->priority == 1)
+    {
+        cout << "Choose: " << *out << endl;
+        cout << "------------------------------" << endl;
+    }
+
+    return out;
 }
