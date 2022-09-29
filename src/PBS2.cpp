@@ -5,8 +5,8 @@
 #include "SIPP.h"
 #include "SpaceTimeAStar.h"
 
-PBS2::PBS2(const Instance& instance, bool sipp, int screen) :
-    PBS(instance, sipp, screen) {}
+PBS2::PBS2(const Instance& instance, bool sipp, int screen,
+    bool use_tr, bool use_ic): PBS(instance, sipp, screen), use_tr(use_tr), use_ic(use_ic) {}
 
 bool PBS2::solve(double time_limit)
 {
@@ -33,7 +33,6 @@ bool PBS2::solve(double time_limit)
         if (!curr->is_expanded)  // This is not a back-tracking
         {
             curr->conflict = chooseConflict(*curr);
-            // curr->pri_conflicts.pop();
             curr->is_expanded = true;
             if (screen > 1)
                 cout << "	Expand " << *curr << "	on " << *(curr->conflict) << endl;
@@ -87,15 +86,6 @@ string PBS2::getSolverName() const
 	return "PBS2 with " + search_engines[0]->getName();
 }
 
-// shared_ptr<Conflict> PBS2::chooseConflict(const PBSNode &node) const
-// {
-//     if (screen == 3)
-//         printConflicts(node);
-//     if (node.pri_conflicts.empty())
-//         return nullptr;
-//     return node.pri_conflicts.top();
-// }
-
 bool PBS2::generateRoot()
 {
 	auto root = new PBSNode();
@@ -105,8 +95,6 @@ bool PBS2::generateRoot()
     set<int> higher_agents;
     for (auto i = 0; i < num_of_agents; i++)
     {
-        //CAT cat(dummy_start->makespan + 1);  // initialized to false
-        //updateReservationTable(cat, i, *dummy_start);
         auto new_path = search_engines[i]->findOptimalPath(higher_agents, paths, i);
         num_LL_expanded += search_engines[i]->num_expanded;
         num_LL_generated += search_engines[i]->num_generated;
@@ -126,15 +114,22 @@ bool PBS2::generateRoot()
     {
         for (int a2 = a1 + 1; a2 < num_of_agents; a2++)
         {
-            int priority = hasConflicts(a1, a2);
-            if(priority == 1)
-                root->conflicts.emplace_front(new Conflict(a1, a2, priority));
-            else if (priority == 2)
+            if (use_tr)
             {
-                if (paths[a1]->size() < paths[a2]->size())
-                    root->conflicts.emplace_back(new Conflict(a1, a2, priority));
-                else
-                    root->conflicts.emplace_back(new Conflict(a2, a1, priority));
+                int priority = hasConflicts(a1, a2);
+                if(priority == 1)
+                    root->conflicts.emplace_front(new Conflict(a1, a2, priority));
+                else if (priority == 2)
+                {
+                    if (paths[a1]->size() < paths[a2]->size())
+                        root->conflicts.emplace_back(new Conflict(a1, a2, priority));
+                    else
+                        root->conflicts.emplace_back(new Conflict(a2, a1, priority));
+                }
+            }
+            else if (PBS::hasConflicts(a1, a2))
+            {
+                root->conflicts.emplace_back(new Conflict(a1, a2));
             }
         }
     }
@@ -246,14 +241,6 @@ bool PBS2::generateChild(int child_id, PBSNode* parent, int low, int high)
             return false;
         }
 
-        #ifndef DEBUG
-        if (screen > 3)
-        {
-            cout << "Before deleting conflicts" << endl;
-            printConflicts(*node, 5);
-        }
-        #endif
-
         // Delete old conflicts
         for (auto c = node->conflicts.begin(); c != node->conflicts.end();)
         {
@@ -262,15 +249,6 @@ bool PBS2::generateChild(int child_id, PBSNode* parent, int low, int high)
             else
                 ++c;
         }
-
-        #ifndef DEBUG
-        if (screen > 3)
-        {
-            cout << "After deleting conflicts" << endl;
-            printConflicts(*node, 5);
-            cout << "----------------------------------" << endl;
-        }
-        #endif
 
         // Update conflicts and to_replan
         set<int> lower_agents;
@@ -287,26 +265,40 @@ bool PBS2::generateChild(int child_id, PBSNode* parent, int low, int high)
         }
 
         // Find new conflicts
-        #ifndef DEBUG
-        if (screen > 2)
-            cout << "Find new conflicts" << endl;
-        #endif
         for (auto a2 = 0; a2 < num_of_agents; a2++)
         {
             if (a2 == a or lookup_table[a2] or higher_agents.count(a2) > 0) // already in to_replan or has higher priority
                 continue;
             auto t = clock();
-            int priority = hasConflicts(a, a2);
-            if (priority > 0)
-            {
-                #ifndef DEBUG
-                if (screen > 3)
-                {
-                    printConflicts(*node, 5);
-                    cout << "----------------------------------" << endl;
-                }
-                #endif
 
+            if (use_tr)
+            {
+                int priority = hasConflicts(a, a2);
+                if (priority > 0)
+                {
+                    if (lower_agents.count(a2) > 0) // has a collision with a lower priority agent
+                    {
+                        if (screen > 1)
+                            cout << "\t" << a2 << " needs to be replanned due to collisions with " << a << endl;
+                        to_replan.emplace(topological_orders[a2], a2);
+                        lookup_table[a2] = true;
+                    }
+                    else if (priority == 1)
+                    {
+                        node->conflicts.emplace_front(new Conflict(a, a2, priority));
+                    }
+                    else if (priority == 2)
+                    {
+                        if (paths[a]->size() < paths[a2]->size())
+                            node->conflicts.emplace_back(new Conflict(a, a2, priority));
+                        else
+                            node->conflicts.emplace_back(new Conflict(a2, a, priority));
+                    }
+                }
+            }
+            else if (PBS::hasConflicts(a, a2))
+            {
+                node->conflicts.emplace_back(new Conflict(a, a2));
                 if (lower_agents.count(a2) > 0) // has a collision with a lower priority agent
                 {
                     if (screen > 1)
@@ -314,23 +306,76 @@ bool PBS2::generateChild(int child_id, PBSNode* parent, int low, int high)
                     to_replan.emplace(topological_orders[a2], a2);
                     lookup_table[a2] = true;
                 }
-                else if (priority == 1)
-                {
-                    node->conflicts.emplace_front(new Conflict(a, a2, priority));
-                }
-                else if (priority == 2)
-                {
-                    if (paths[a]->size() < paths[a2]->size())
-                        node->conflicts.emplace_back(new Conflict(a, a2, priority));
-                    else
-                        node->conflicts.emplace_back(new Conflict(a2, a, priority));
-                }
             }
             runtime_detect_conflicts += (double)(clock() - t) / CLOCKS_PER_SEC;
         }
     }
 
-    // Compute the implicit constraints
+    if (use_ic)  // Compute the implicit constraints
+    {
+        computeImplicitConstraints(node, topological_orders);
+    }
+
+    num_HL_generated++;
+    node->time_generated = num_HL_generated;
+    if (screen > 1)
+        cout << "Generate " << *node << endl;
+    return true;
+}
+
+int PBS2::hasConflicts(int a1, int a2) const
+{
+	int min_path_length = (int) (paths[a1]->size() < paths[a2]->size() ? paths[a1]->size() : paths[a2]->size());
+    if (paths[a1]->size() != paths[a2]->size())
+	{
+		int a1_ = paths[a1]->size() < paths[a2]->size() ? a1 : a2;
+		int a2_ = paths[a1]->size() < paths[a2]->size() ? a2 : a1;
+		int loc1 = paths[a1_]->back().location;
+		for (int timestep = min_path_length; timestep < (int)paths[a2_]->size(); timestep++)
+		{
+			int loc2 = paths[a2_]->at(timestep).location;
+			if (loc1 == loc2)
+			{
+				return 2; // target conflict
+			}
+		}
+	}
+
+    for (int timestep = 0; timestep < min_path_length; timestep++)
+	{
+		int loc1 = paths[a1]->at(timestep).location;
+		int loc2 = paths[a2]->at(timestep).location;
+		if (loc1 == loc2 or (timestep < min_path_length - 1 and loc1 == paths[a2]->at(timestep + 1).location
+                             and loc2 == paths[a1]->at(timestep + 1).location)) // vertex or edge conflict
+		{
+            return 1;
+		}
+	}
+    return 0; // conflict-free
+}
+
+shared_ptr<Conflict> PBS2::chooseConflict(const PBSNode &node) const
+{
+    if (node.conflicts.empty())
+        return nullptr;
+
+    shared_ptr<Conflict> out = node.conflicts.back();
+
+    if (use_tr and out->priority == 2)
+        return out;
+
+    if (use_ic)
+    {
+        for (const auto& conf : node.conflicts)
+            if (out->max_num_ic < conf->max_num_ic)
+                out = conf;
+    }
+
+    return out;
+}
+
+void PBS2::computeImplicitConstraints(PBSNode* node, const vector<int>& topological_orders)
+{
     vector<int> num_higher_ags(num_of_agents, -1);
     vector<int> num_lower_ags(num_of_agents, -1);
     list<int>::reverse_iterator ag_rit;
@@ -389,67 +434,4 @@ bool PBS2::generateChild(int child_id, PBSNode* parent, int low, int high)
             std::swap(conf->a1, conf->a2);
     }
     runtime_implicit_constraints += (double)(clock() - t) / CLOCKS_PER_SEC;
-
-    num_HL_generated++;
-    node->time_generated = num_HL_generated;
-    if (screen > 1)
-        cout << "Generate " << *node << endl;
-    return true;
-}
-
-int PBS2::hasConflicts(int a1, int a2) const
-{
-	int min_path_length = (int) (paths[a1]->size() < paths[a2]->size() ? paths[a1]->size() : paths[a2]->size());
-    if (paths[a1]->size() != paths[a2]->size())
-	{
-		int a1_ = paths[a1]->size() < paths[a2]->size() ? a1 : a2;
-		int a2_ = paths[a1]->size() < paths[a2]->size() ? a2 : a1;
-		int loc1 = paths[a1_]->back().location;
-		for (int timestep = min_path_length; timestep < (int)paths[a2_]->size(); timestep++)
-		{
-			int loc2 = paths[a2_]->at(timestep).location;
-			if (loc1 == loc2)
-			{
-				return 2; // target conflict
-			}
-		}
-	}
-
-    for (int timestep = 0; timestep < min_path_length; timestep++)
-	{
-		int loc1 = paths[a1]->at(timestep).location;
-		int loc2 = paths[a2]->at(timestep).location;
-		if (loc1 == loc2 or (timestep < min_path_length - 1 and loc1 == paths[a2]->at(timestep + 1).location
-                             and loc2 == paths[a1]->at(timestep + 1).location)) // vertex or edge conflict
-		{
-            return 1;
-		}
-	}
-    return 0; // conflict-free
-}
-
-shared_ptr<Conflict> PBS2::chooseConflict(const PBSNode &node) const
-{
-    if (screen == 3)
-    {
-        cout << "------------------------------" << endl;
-        printConflicts(node);
-    }
-
-    if (node.conflicts.empty())
-        return nullptr;
-
-    shared_ptr<Conflict> out = node.conflicts.back();
-    if (out->priority == 2)
-        return out;
-    for (const auto& conf : node.conflicts)
-        if (out->max_num_ic < conf->max_num_ic)
-            out = conf;
-    if (screen == 3 && out->priority == 1)
-    {
-        cout << "Choose: " << *out << endl;
-        cout << "------------------------------" << endl;
-    }
-
-    return out;
 }

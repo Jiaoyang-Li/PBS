@@ -34,6 +34,8 @@ int main(int argc, char** argv)
 
 		("sipp", po::value<bool>()->default_value(1), "using SIPP as the low-level solver")
 		("solver", po::value<string>()->default_value("PBS"), "Which high-level solver to use")
+		("tr", po::value<bool>()->default_value(1), "using target reasoning")
+		("ic", po::value<bool>()->default_value(1), "using implicit constraint")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -71,7 +73,8 @@ int main(int argc, char** argv)
 	}
 	else if (vm["solver"].as<string>() == "PBS2")
 	{
-		PBS2 pbs2(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>());
+		PBS2 pbs2(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>(),
+			vm["tr"].as<bool>(), vm["ic"].as<bool>());
 		// run
 		double runtime = 0;
 		pbs2.solve(vm["cutoffTime"].as<double>());
