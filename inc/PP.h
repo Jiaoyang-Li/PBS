@@ -18,6 +18,7 @@ public:
 	uint64_t num_HL_generated = 0;
 	uint64_t num_LL_expanded = 0;
 	uint64_t num_LL_generated = 0;
+	uint64_t num_of_restart = 0;
 
 	bool solution_found = false;
 	int solution_cost = -2;

@@ -67,6 +67,7 @@ bool PP::solve(double _time_limit)
             {
                 if (screen > 1)
                     cout << "No path exists for agent " << id << endl;
+                num_of_restart ++;
                 break;
             }
             paths[id] = new Path(new_path);
@@ -121,7 +122,7 @@ void PP::saveResults(const string &fileName, const string &instanceName) const
 	{
 		ofstream addHeads(fileName);
 		addHeads << "runtime,#high-level expanded,#high-level generated," <<
-            "#low-level expanded,#low-level generated," <<
+            "#low-level expanded,#low-level generated,#restart" <<
 			"solution cost,root g value," <<
 			"runtime of detecting conflicts,runtime of building constraint tables,runtime of building CATs," <<
 			"runtime of path finding,runtime of generating child nodes," <<
@@ -131,7 +132,7 @@ void PP::saveResults(const string &fileName, const string &instanceName) const
 	ofstream stats(fileName, std::ios::app);
 	stats << runtime << "," <<
         num_HL_expanded << "," << num_HL_generated << "," <<
-        num_LL_expanded << "," << num_LL_generated << "," <<
+        num_LL_expanded << "," << num_LL_generated << "," << num_of_restart << "," <<
         solution_cost << "," << 0 << "," <<
 		runtime_detect_conflicts << "," << runtime_build_CT << "," << runtime_build_CAT << "," <<
 		runtime_path_finding << "," << 0 << "," <<
