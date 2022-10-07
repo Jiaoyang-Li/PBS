@@ -36,6 +36,7 @@ int main(int argc, char** argv)
 		("solver", po::value<string>()->default_value("PBS"), "Which high-level solver to use")
 		("tr", po::value<bool>()->default_value(1), "using target reasoning")
 		("ic", po::value<bool>()->default_value(1), "using implicit constraint")
+		("lh", po::value<bool>()->default_value(0), "using LH heuristic for PP")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -86,7 +87,7 @@ int main(int argc, char** argv)
 	}
 	else if (vm["solver"].as<string>() == "PP")
 	{
-		PP pp(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>());
+		PP pp(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>(), vm["lh"].as<bool>());
 		// run
 		double runtime = 0;
 		pp.solve(vm["cutoffTime"].as<double>());

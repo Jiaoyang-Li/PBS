@@ -5,9 +5,15 @@
 #include "SIPP.h"
 #include "SpaceTimeAStar.h"
 
-PP::PP(const Instance& instance, bool sipp, int screen) :
+// utility comparator function to pass to the sort() module
+bool sortByPathSize(const pair<int, size_t> &a, const pair<int, size_t> &b) 
+{ 
+    return (a.second > b.second); 
+} 
+
+PP::PP(const Instance& instance, bool sipp, int screen, bool use_LH) :
     screen(screen), num_of_agents(instance.getDefaultNumberOfAgents()),
-    num_of_cols(instance.num_of_cols), map_size(instance.map_size)
+    num_of_cols(instance.num_of_cols), map_size(instance.map_size), use_LH(use_LH)
 {
     clock_t t = clock();
 
@@ -41,10 +47,31 @@ bool PP::solve(double _time_limit)
     }
 
     start = clock();  // set timer
+
+    if (use_LH)
+    {
+        ConstraintTable constraint_table(num_of_cols, map_size);
+        vector<pair<int, size_t>> init_path_size;
+        for (const auto& ag : ordered_agents)
+        {
+            Path init_path = search_engines[ag]->findOptimalPath(constraint_table);
+            init_path_size.emplace_back(ag, init_path.size());
+        }
+        sort(init_path_size.begin(), init_path_size.end(), sortByPathSize);
+
+        ordered_agents.clear();
+        for (const auto& _p_ : init_path_size)
+        {
+            ordered_agents.push_back(_p_.first);
+        }
+    }
+    else
+    {
+        std::random_shuffle(ordered_agents.begin(), ordered_agents.end());
+    }
     
     while (runtime < time_limit)
     {
-        std::random_shuffle(ordered_agents.begin(), ordered_agents.end());
         ConstraintTable constraint_table(num_of_cols, map_size);
         auto p = ordered_agents.begin();
         while (p != ordered_agents.end())
@@ -67,6 +94,7 @@ bool PP::solve(double _time_limit)
             {
                 if (screen > 1)
                     cout << "No path exists for agent " << id << endl;
+                std::random_shuffle(ordered_agents.begin(), ordered_agents.end());
                 num_of_restart ++;
                 break;
             }

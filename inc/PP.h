@@ -23,7 +23,7 @@ public:
 	bool solution_found = false;
 	int solution_cost = -2;
 
-	PP(const Instance& instance, bool sipp, int screen);
+	PP(const Instance& instance, bool sipp, int screen, bool use_LH=false);
 	~PP(){}
 
 	// Runs the algorithm until the problem is solved or time is exhausted 
@@ -46,6 +46,7 @@ private:
 	int num_of_agents;
 	int num_of_cols;
 	int map_size;
+	bool use_LH;
 
     vector<int> ordered_agents;
 	vector<Path*> paths;
