@@ -16,6 +16,7 @@ class PBSNode
 {
 public:
 	Constraint constraint; // new constraint
+	list<shared_ptr<Constraint>> constraints; // new constraint set for mvc
     list< pair< int, Path> > paths; // new paths
     int cost = 0; // sum of costs
     bool is_expanded = false;
@@ -26,18 +27,17 @@ public:
 	uint64_t time_expanded = 0;
 	uint64_t time_generated = 0;
 
-	// conflicts in the current paths
-	list<shared_ptr<Conflict> > conflicts;
-    // pairing_heap< shared_ptr<Conflict>, compare<compare_conflicts>> pri_conflicts;
-	// The chosen conflict
-	shared_ptr<Conflict> conflict;
+	list<shared_ptr<Conflict> > conflicts;  // conflicts in the current paths
+	shared_ptr<Conflict> conflict;  // The chosen conflict
+
+    vector<int> ag_weights;
 
     PBSNode* parent = nullptr;
 	PBSNode* children[2] = {nullptr, nullptr};
 
     PBSNode() = default;
-    PBSNode(PBSNode& parent) : cost(parent.cost), depth(parent.depth+1),
-                               makespan(parent.makespan), conflicts(parent.conflicts), parent(&parent){ }
+    PBSNode(PBSNode& parent) : cost(parent.cost), depth(parent.depth+1), makespan(parent.makespan), 
+                               conflicts(parent.conflicts), parent(&parent) {}
 	void clear();
 	void printConstraints(int id) const;
     inline int getNumNewPaths() const { return (int) paths.size(); }

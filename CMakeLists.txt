@@ -19,3 +19,19 @@ add_executable(pbs ${SOURCES})
 find_package(Boost REQUIRED COMPONENTS program_options system filesystem)
 include_directories( ${Boost_INCLUDE_DIRS} )
 target_link_libraries(pbs ${Boost_LIBRARIES})
+
+# Find CPLEX
+find_package(Threads REQUIRED)
+if(THREADS_HAVE_PTHREAD_ARG)
+  target_compile_options(pbs PUBLIC "-pthread")
+endif()
+
+include_directories("/opt/ibm/ILOG/CPLEX_Studio201/cplex/include")
+include_directories("/opt/ibm/ILOG/CPLEX_Studio201/concert/include")
+find_library(ILOCPLEX_LIBRARY ilocplex "/opt/ibm/ILOG/CPLEX_Studio201/cplex/lib/x86-64_linux/static_pic")
+find_library(CPLEX_LIBRARY cplex "/opt/ibm/ILOG/CPLEX_Studio201/cplex/lib/x86-64_linux/static_pic")
+find_library(CONCERT_LIBRARY concert "/opt/ibm/ILOG/CPLEX_Studio201/concert/lib/x86-64_linux/static_pic")
+
+target_link_libraries(pbs ${ILOCPLEX_LIBRARY} -lpthread -ldl)
+target_link_libraries(pbs ${CPLEX_LIBRARY} -lpthread -ldl)
+target_link_libraries(pbs ${CONCERT_LIBRARY} -lpthread -ldl)

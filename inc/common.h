@@ -11,6 +11,7 @@
 #include <boost/heap/pairing_heap.hpp>
 #include <boost/unordered_set.hpp>
 #include <boost/unordered_map.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 using boost::heap::pairing_heap;
 using boost::heap::compare;

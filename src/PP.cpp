@@ -79,6 +79,8 @@ bool PP::solve(double _time_limit)
             int id = *p;
             clock_t t = clock();
             Path new_path = search_engines[id]->findOptimalPath(constraint_table);
+            double new_path_runtime = (double) (clock() - t) / CLOCKS_PER_SEC;
+            num_LL_search_calls ++;
             num_LL_expanded += search_engines[id]->num_expanded;
             num_LL_generated += search_engines[id]->num_generated;
             runtime_build_CT += search_engines[id]->runtime_build_CT;
@@ -95,7 +97,7 @@ bool PP::solve(double _time_limit)
                 if (screen > 1)
                     cout << "No path exists for agent " << id << endl;
                 std::random_shuffle(ordered_agents.begin(), ordered_agents.end());
-                num_of_restart ++;
+                num_restart ++;
                 break;
             }
             paths[id] = new Path(new_path);
@@ -150,7 +152,7 @@ void PP::saveResults(const string &fileName, const string &instanceName) const
 	{
 		ofstream addHeads(fileName);
 		addHeads << "runtime,#high-level expanded,#high-level generated," <<
-            "#low-level expanded,#low-level generated,#restart" <<
+            "#low-level expanded,#low-level generated,#restart,#low-level search calls," <<
 			"solution cost,root g value," <<
 			"runtime of detecting conflicts,runtime of building constraint tables,runtime of building CATs," <<
 			"runtime of path finding,runtime of generating child nodes," <<
@@ -160,7 +162,8 @@ void PP::saveResults(const string &fileName, const string &instanceName) const
 	ofstream stats(fileName, std::ios::app);
 	stats << runtime << "," <<
         num_HL_expanded << "," << num_HL_generated << "," <<
-        num_LL_expanded << "," << num_LL_generated << "," << num_of_restart << "," <<
+        num_LL_expanded << "," << num_LL_generated << "," << num_restart << "," << 
+        num_LL_search_calls << "," <<
         solution_cost << "," << 0 << "," <<
 		runtime_detect_conflicts << "," << runtime_build_CT << "," << runtime_build_CAT << "," <<
 		runtime_path_finding << "," << 0 << "," <<

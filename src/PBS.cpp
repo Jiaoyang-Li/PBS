@@ -12,6 +12,9 @@ PBS::PBS(const Instance& instance, bool sipp, int screen) :
 {
     clock_t t = clock();
 
+    init_agents = vector<int>(num_of_agents);
+    iota(init_agents.begin(), init_agents.end(), 0);
+
     search_engines.resize(num_of_agents);
     for (int i = 0; i < num_of_agents; i++)
     {
@@ -39,8 +42,7 @@ bool PBS::solve(double _time_limit)
         name.resize(35, ' ');
         cout << name << ": ";
     }
-    // set timer
-    start = clock();
+    start = clock();  // set timer
 
     generateRoot();
 
@@ -94,6 +96,7 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
         topological_orders[a] = i;
         i--;
     }
+    checkCycle(topological_orders);
 
     std::priority_queue<pair<int, int>> to_replan; // <position in ordered_agents, agent id>
     vector<bool> lookup_table(num_of_agents, false);
@@ -214,6 +217,7 @@ bool PBS::findPathForSingleAgent(PBSNode& node, const set<int>& higher_agents, i
 {
     clock_t t = clock();
     new_path = search_engines[a]->findOptimalPath(higher_agents, paths, a);  //TODO: add runtime check to the low level
+    num_LL_search_calls ++;
     num_LL_expanded += search_engines[a]->num_expanded;
     num_LL_generated += search_engines[a]->num_generated;
     runtime_build_CT += search_engines[a]->runtime_build_CT;
@@ -413,41 +417,6 @@ void PBS::printResults() const
 	cout << solution_cost << "," << runtime << "," <<
          num_HL_expanded << "," << num_LL_expanded << "," << // HL_num_generated << "," << LL_num_generated << "," <<
 		dummy_start->cost << "," << endl;
-    /*if (solution_cost >= 0) // solved
-    {
-        cout << "fhat = [";
-        auto curr = goal_node;
-        while (curr != nullptr)
-        {
-            cout << curr->getFHatVal() << ",";
-            curr = curr->parent;
-        }
-        cout << "]" << endl;
-        cout << "hhat = [";
-        curr = goal_node;
-        while (curr != nullptr)
-        {
-            cout << curr->cost_to_go << ",";
-            curr = curr->parent;
-        }
-        cout << "]" << endl;
-        cout << "d = [";
-        curr = goal_node;
-        while (curr != nullptr)
-        {
-            cout << curr->distance_to_go << ",";
-            curr = curr->parent;
-        }
-        cout << "]" << endl;
-        cout << "soc = [";
-        curr = goal_node;
-        while (curr != nullptr)
-        {
-            cout << curr->getFHatVal() - curr->cost_to_go << ",";
-            curr = curr->parent;
-        }
-        cout << "]" << endl;
-    }*/
 }
 
 void PBS::saveResults(const string &fileName, const string &instanceName) const
@@ -459,20 +428,24 @@ void PBS::saveResults(const string &fileName, const string &instanceName) const
 	{
 		ofstream addHeads(fileName);
 		addHeads << "runtime,#high-level expanded,#high-level generated," <<
-            "#low-level expanded,#low-level generated,#backtrack," <<
+            "#low-level expanded,#low-level generated,#backtrack," << 
+            "#low-level search calls,#restarts," <<
 			"solution cost,root g value," <<
-			"runtime of detecting conflicts,runtime of building constraint tables,runtime of building CATs," <<
-			"runtime of path finding,runtime of generating child nodes," <<
-			"preprocessing runtime,runtime of implicit constraints,solver name,instance name" << endl;
+			"runtime of detecting conflicts,runtime of building constraint tables," <<
+			"runtime of building CATs,runtime of path finding,runtime of generating child nodes," <<
+			"preprocessing runtime,runtime of implicit constraints,runtime of MVC," <<
+            "solver name,instance name" << endl;
 		addHeads.close();
 	}
 	ofstream stats(fileName, std::ios::app);
 	stats << runtime << "," << num_HL_expanded << "," << num_HL_generated << "," <<
-        num_LL_expanded << "," << num_LL_generated << "," << num_backtrack << "," <<
+        num_LL_expanded << "," << num_LL_generated << "," << num_backtrack << "," << 
+        num_LL_search_calls << "," << num_restart << "," <<
         solution_cost << "," << dummy_start->cost << "," <<
 		runtime_detect_conflicts << "," << runtime_build_CT << "," << runtime_build_CAT << "," <<
 		runtime_path_finding << "," << runtime_generate_child << "," <<
 		runtime_preprocessing << "," << runtime_implicit_constraints << "," << 
+        runtime_run_mvc << "," <<
         getSolverName() << "," << instanceName << endl;
 	stats.close();
 }
@@ -585,8 +558,8 @@ string PBS::getSolverName() const
 bool PBS::terminate(PBSNode* curr)
 {
 	runtime = (double)(clock() - start) / CLOCKS_PER_SEC;
-	if (curr->conflicts.empty()) //no conflicts
-	{// found a solution
+	if (curr->conflicts.empty())  // no conflicts, we find a solution
+	{
 		solution_found = true;
 		goal_node = curr;
 		solution_cost = goal_node->cost;
@@ -614,29 +587,29 @@ bool PBS::terminate(PBSNode* curr)
 
 bool PBS::generateRoot()
 {
-	auto root = new PBSNode();
+	PBSNode* root = new PBSNode();
 	root->cost = 0;
-	paths.reserve(num_of_agents);
+    paths = vector<Path*>(num_of_agents, nullptr);
+    std::random_shuffle(init_agents.begin(), init_agents.end());
 
     set<int> higher_agents;
-    for (auto i = 0; i < num_of_agents; i++)
+    for (int i = 0; i < num_of_agents; i++)
     {
-        //CAT cat(dummy_start->makespan + 1);  // initialized to false
-        //updateReservationTable(cat, i, *dummy_start);
-        auto new_path = search_engines[i]->findOptimalPath(higher_agents, paths, i);
-        num_LL_expanded += search_engines[i]->num_expanded;
-        num_LL_generated += search_engines[i]->num_generated;
+        int _ag_ = init_agents[i];
+        Path new_path = search_engines[_ag_]->findOptimalPath(higher_agents, paths, _ag_);
+        num_LL_expanded += search_engines[_ag_]->num_expanded;
+        num_LL_generated += search_engines[_ag_]->num_generated;
         if (new_path.empty())
         {
             cout << "No path exists for agent " << i << endl;
             return false;
         }
-        root->paths.emplace_back(i, new_path);
-        paths.emplace_back(&root->paths.back().second);
+        root->paths.emplace_back(_ag_, new_path);
+        paths[_ag_] = &root->paths.back().second;
         root->makespan = max(root->makespan, new_path.size() - 1);
         root->cost += (int)new_path.size() - 1;
     }
-    auto t = clock();
+    clock_t t = clock();
 	root->depth = 0;
     for (int a1 = 0; a1 < num_of_agents; a1++)
     {
@@ -655,31 +628,18 @@ bool PBS::generateRoot()
         cout << "Generate " << *root << endl;
 	pushNode(root);
 	dummy_start = root;
-	if (screen >= 2) // print start and goals
-	{
+	if (screen >= 2)  // print start and goals
 		printPaths();
-	}
 
 	return true;
 }
 
 inline void PBS::releaseNodes()
 {
-    // TODO:: clear open_list
 	for (auto& node : allNodes_table)
 		delete node;
 	allNodes_table.clear();
 }
-
-/*inline void PBS::releaseOpenListNodes()
-{
-	while (!open_list.empty())
-	{
-		PBSNode* curr = open_list.top();
-		open_list.pop();
-		delete curr;
-	}
-}*/
 
 PBS::~PBS()
 {
@@ -764,7 +724,6 @@ void PBS::clear()
 	solution_cost = -2;
 }
 
-
 void PBS::topologicalSort(list<int>& stack)
 {
     stack.clear();
@@ -778,6 +737,7 @@ void PBS::topologicalSort(list<int>& stack)
             topologicalSortUtil(i, visited, stack);
     }
 }
+
 void PBS::topologicalSortUtil(int v, vector<bool> & visited, list<int> & stack)
 {
     // Mark the current node as visited.
@@ -793,6 +753,19 @@ void PBS::topologicalSortUtil(int v, vector<bool> & visited, list<int> & stack)
     // Push current vertex to stack which stores result
     stack.push_back(v);
 }
+
+bool PBS::checkCycle(const vector<int>& topological_orders)
+{
+    // Stores the positions of agents in topological_orders
+    for (int a1 = 0; a1 < num_of_agents; a1++)
+        for (int a2 = 0; a2 < num_of_agents; a2++)
+            if (priority_graph[a1][a2] and
+                topological_orders[a1] > topological_orders[a2])
+                return true;  // Cycle exists
+
+    return false;  // Return false if cycle does not exist
+}
+
 void PBS::getHigherPriorityAgents(const list<int>::reverse_iterator & p1, set<int>& higher_agents)
 {
     for (auto p2 = std::next(p1); p2 != ordered_agents.rend(); ++p2)

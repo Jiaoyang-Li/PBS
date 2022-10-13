@@ -15,12 +15,15 @@ public:
 	double runtime_detect_conflicts = 0;
 	double runtime_preprocessing = 0; // runtime of building heuristic table for the low level
 	double runtime_implicit_constraints = 0; // runtime for computing implicit constraints
+	double runtime_run_mvc = 0;  // runtime for computing MVC
 
 	uint64_t num_HL_expanded = 0;
 	uint64_t num_HL_generated = 0;
 	uint64_t num_LL_expanded = 0;
 	uint64_t num_LL_generated = 0;
+	uint64_t num_LL_search_calls = 0;
 	uint64_t num_backtrack = 0;
+	uint64_t num_restart = 0;
 
 	PBSNode* dummy_start = nullptr;
     PBSNode* goal_node = nullptr;
@@ -48,32 +51,24 @@ public:
 	void clear(); // used for rapid random  restart
 
 protected:
+
+    int screen;
+	double time_limit;
+	int node_limit = MAX_NODES;
+	clock_t start;
+	int num_of_agents;
+
+    vector<int> init_agents;
+	vector<Path*> paths;
 	conflict_selection conflict_seletion_rule;
-
-    stack<PBSNode*> open_list;
+	vector <SingleAgentSolver*> search_engines;  // used to find (single) agents' paths and mdd
+	stack<PBSNode*> open_list;
 	list<PBSNode*> allNodes_table;
-
-
     list<int> ordered_agents;  // ordered from high priority agents to low priority agents
     vector<vector<bool>> priority_graph; // [i][j] = true indicates that i is lower than j
 
     virtual string getSolverName() const;
-
-	int screen;
-	
-	double time_limit;
-	int node_limit = MAX_NODES;
-
-	clock_t start;
-
-	int num_of_agents;
-
-
-	vector<Path*> paths;
-	vector <SingleAgentSolver*> search_engines;  // used to find (single) agents' paths and mdd
-
     bool generateChild(int child_id, PBSNode* parent, int low, int high);
-
 	int hasConflicts(int a1, int a2) const;
     bool hasConflicts(int a1, const set<int>& agents) const;
 	shared_ptr<Conflict> chooseConflict(const PBSNode &node) const;
@@ -114,4 +109,5 @@ protected:
 
     void topologicalSort(list<int>& stack);
     void topologicalSortUtil(int v, vector<bool> & visited, list<int> & stack);
+	bool checkCycle(const vector<int>& topological_orders);
 };

@@ -1,3 +1,4 @@
+//#pragma warning(disable: 4996)
 #include <algorithm>
 #include <random>
 #include <chrono>
@@ -6,7 +7,8 @@
 #include "SpaceTimeAStar.h"
 
 PBS2::PBS2(const Instance& instance, bool sipp, int screen,
-    bool use_tr, bool use_ic): PBS(instance, sipp, screen), use_tr(use_tr), use_ic(use_ic) {}
+    bool use_tr, bool use_ic, bool use_rr): PBS(instance, sipp, screen), 
+    use_tr(use_tr), use_ic(use_ic), use_rr(use_rr) {}
 
 bool PBS2::solve(double time_limit)
 {
@@ -21,49 +23,63 @@ bool PBS2::solve(double time_limit)
     // set timer
     start = clock();
 
-    generateRoot();
-
-    while (!open_list.empty())
+    while (solution_cost == -2)  // Not yet find a solution
     {
-        auto curr = selectNode();
+        generateRoot();
 
-        if (terminate(curr)) break;
-
-        clock_t t1;
-        if (!curr->is_expanded)  // This is not a back-tracking
+        while (!open_list.empty())
         {
-            curr->conflict = chooseConflict(*curr);
-            curr->is_expanded = true;
-            if (screen > 1)
-                cout << "	Expand " << *curr << "	on " << *(curr->conflict) << endl;
+            auto curr = selectNode();
 
-            assert(!hasHigherPriority(curr->conflict->a1, curr->conflict->a2) and 
-                !hasHigherPriority(curr->conflict->a2, curr->conflict->a1) );
+            if (terminate(curr)) break;
 
-            t1 = clock();
-            generateChild(0, curr, curr->conflict->a1, curr->conflict->a2);
-            runtime_generate_child += (double)(clock() - t1) / CLOCKS_PER_SEC;
+            clock_t t1;
+            if (!curr->is_expanded)  // This is not a back-tracking
+            {
+                curr->conflict = chooseConflict(*curr);
+                curr->is_expanded = true;
+                if (screen > 1)
+                    cout << "	Expand " << *curr << "	on " << *(curr->conflict) << endl;
 
-            if (curr->children[0] != nullptr)
-                pushNode(curr->children[0]);
-        }
-        else  // We only generate another child node if back-tracking happens
-        {
-            if (screen > 1)
-                cout << "	Expand " << *curr << "	on " << *(curr->conflict) << endl;
+                assert(!hasHigherPriority(curr->conflict->a1, curr->conflict->a2) and 
+                    !hasHigherPriority(curr->conflict->a2, curr->conflict->a1) );
 
-            open_list.pop();
-            t1 = clock();    
-            generateChild(1, curr, curr->conflict->a2, curr->conflict->a1);
-            runtime_generate_child += (double)(clock() - t1) / CLOCKS_PER_SEC;
+                t1 = clock();
+                generateChild(0, curr, curr->conflict->a1, curr->conflict->a2);
+                runtime_generate_child += (double)(clock() - t1) / CLOCKS_PER_SEC;
 
-            if (curr->children[1] != nullptr)
-                pushNode(curr->children[1]);
-            else
-                num_backtrack ++;
-            curr->clear();
-        }
-    }  // end of while loop
+                if (curr->children[0] != nullptr)
+                    pushNode(curr->children[0]);
+            }
+            else  // We only generate another child node if back-tracking happens
+            {
+                if (screen > 1)
+                    cout << "	Expand " << *curr << "	on " << *(curr->conflict) << endl;
+
+                open_list.pop();
+                t1 = clock();    
+                generateChild(1, curr, curr->conflict->a2, curr->conflict->a1);
+                runtime_generate_child += (double)(clock() - t1) / CLOCKS_PER_SEC;
+
+                if (curr->children[1] != nullptr)
+                {
+                    pushNode(curr->children[1]);
+                }
+                else
+                {
+                    num_backtrack ++;
+                    if (use_rr)
+                    {
+                        clear();
+                        stack<PBSNode*>().swap(open_list);  // clear the open_list
+                        num_restart ++;
+                        break;  // leave the while loop of open_list.empty
+                    }
+                }
+                curr->clear();
+            }
+        }  // end of while loop
+    }
     return solution_found;
 }
 
@@ -88,27 +104,29 @@ string PBS2::getSolverName() const
 
 bool PBS2::generateRoot()
 {
-	auto root = new PBSNode();
+	PBSNode* root = new PBSNode();
 	root->cost = 0;
-	paths.reserve(num_of_agents);
+	paths = vector<Path*>(num_of_agents, nullptr);
+    std::random_shuffle(init_agents.begin(), init_agents.end());
 
     set<int> higher_agents;
-    for (auto i = 0; i < num_of_agents; i++)
+    for (int i = 0; i < num_of_agents; i++)
     {
-        auto new_path = search_engines[i]->findOptimalPath(higher_agents, paths, i);
-        num_LL_expanded += search_engines[i]->num_expanded;
-        num_LL_generated += search_engines[i]->num_generated;
+        int _ag_ = init_agents[i];
+        Path new_path = search_engines[_ag_]->findOptimalPath(higher_agents, paths, _ag_);
+        num_LL_expanded += search_engines[_ag_]->num_expanded;
+        num_LL_generated += search_engines[_ag_]->num_generated;
         if (new_path.empty())
         {
-            cout << "No path exists for agent " << i << endl;
+            cout << "No path exists for agent " << _ag_ << endl;
             return false;
         }
-        root->paths.emplace_back(i, new_path);
-        paths.emplace_back(&root->paths.back().second);
+        root->paths.emplace_back(_ag_, new_path);
+        paths[_ag_] = &root->paths.back().second;
         root->makespan = max(root->makespan, new_path.size() - 1);
         root->cost += (int)new_path.size() - 1;
     }
-    auto t = clock();
+    clock_t t = clock();
 	root->depth = 0;
     for (int a1 = 0; a1 < num_of_agents; a1++)
     {
@@ -119,15 +137,19 @@ bool PBS2::generateRoot()
                 int priority = hasConflicts(a1, a2);
                 if(priority == 1)
                     root->conflicts.emplace_front(new Conflict(a1, a2, priority));
-                else if (priority == 2)
+                else if (priority == 2)  // target conflict
                 {
-                    if (paths[a1]->size() < paths[a2]->size())
+                    if (paths[a1]->size() < paths[a2]->size())  // a1 is at its goal location
+                    {
                         root->conflicts.emplace_back(new Conflict(a1, a2, priority));
-                    else
+                    }
+                    else  // a2 is at its goal location
+                    {
                         root->conflicts.emplace_back(new Conflict(a2, a1, priority));
+                    }
                 }
             }
-            else if (PBS::hasConflicts(a1, a2))
+            else if (PBS::hasConflicts(a1, a2))  // not using target reasoning
             {
                 root->conflicts.emplace_back(new Conflict(a1, a2));
             }
@@ -141,9 +163,7 @@ bool PBS2::generateRoot()
 	pushNode(root);
 	dummy_start = root;
 	if (screen >= 2) // print start and goals
-	{
 		printPaths();
-	}
 
 	return true;
 }
@@ -279,7 +299,7 @@ bool PBS2::generateChild(int child_id, PBSNode* parent, int low, int high)
                     if (lower_agents.count(a2) > 0) // has a collision with a lower priority agent
                     {
                         if (screen > 1)
-                            cout << "\t" << a2 << " needs to be replanned due to collisions with " << a << endl;
+                            cout << "\tshould replan " << a2 << " for colliding with " << a << endl;
                         to_replan.emplace(topological_orders[a2], a2);
                         lookup_table[a2] = true;
                     }
@@ -302,7 +322,7 @@ bool PBS2::generateChild(int child_id, PBSNode* parent, int low, int high)
                 if (lower_agents.count(a2) > 0) // has a collision with a lower priority agent
                 {
                     if (screen > 1)
-                        cout << "\t" << a2 << " needs to be replanned due to collisions with " << a << endl;
+                        cout << "\tshould replan " << a2 << " for colliding with " << a << endl;
                     to_replan.emplace(topological_orders[a2], a2);
                     lookup_table[a2] = true;
                 }

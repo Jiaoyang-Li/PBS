@@ -133,6 +133,7 @@ Path SpaceTimeAStar::findOptimalPath(const set<int>& higher_agents, const vector
     return path;
 }
 
+// This function is for PP, so we don't need to worry about CAT
 Path SpaceTimeAStar::findOptimalPath(const ConstraintTable& constraint_table)
 {
     optimal = true;
