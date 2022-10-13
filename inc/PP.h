@@ -6,13 +6,13 @@ class PP
 public:
 	/////////////////////////////////////////////////////////////////////////////////////
 	// stats
-	double runtime = 0;
-	double runtime_generate_child = 0; // runtimr of generating child nodes
-	double runtime_build_CT = 0; // runtimr of building constraint table
-	double runtime_build_CAT = 0; // runtime of building conflict avoidance table
-	double runtime_path_finding = 0; // runtime of finding paths for single agents
-	double runtime_detect_conflicts = 0;
-	double runtime_preprocessing = 0; // runtime of building heuristic table for the low level
+	clock_t runtime = 0;
+	clock_t runtime_generate_child = 0; // runtimr of generating child nodes
+	clock_t runtime_build_CT = 0; // runtimr of building constraint table
+	clock_t runtime_build_CAT = 0; // runtime of building conflict avoidance table
+	clock_t runtime_path_finding = 0; // runtime of finding paths for single agents
+	clock_t runtime_detect_conflicts = 0;
+	clock_t runtime_preprocessing = 0; // runtime of building heuristic table for the low level
 
 	uint64_t num_HL_expanded = 0;
 	uint64_t num_HL_generated = 0;
@@ -41,9 +41,9 @@ private:
     string getSolverName() const;
 
 	int screen;
-	double time_limit;
+	clock_t time_limit;
 	int node_limit = MAX_NODES;
-	clock_t start;
+	steady_clock::time_point start;
 	int num_of_agents;
 	int num_of_cols;
 	int map_size;

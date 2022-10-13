@@ -5,6 +5,7 @@
 #include <set>
 #include <stack>
 #include <ctime>
+#include <chrono>
 #include <fstream>
 #include <iostream>     // std::cout, std::fixed
 #include <iomanip>      // std::setprecision
@@ -38,7 +39,8 @@ using std::ofstream;
 using std::cerr;
 using std::string;
 using std::stack;
-
+using std::chrono::steady_clock;
+using std::chrono::microseconds;
 
 #define MAX_TIMESTEP INT_MAX / 2
 #define MAX_COST INT_MAX / 2
@@ -54,6 +56,11 @@ typedef vector<PathEntry> Path;
 std::ostream& operator<<(std::ostream& os, const Path& path);
 
 bool isSamePath(const Path& p1, const Path& p2);
+
+inline clock_t getDuration(steady_clock::time_point start, steady_clock::time_point end) 
+{
+    return std::chrono::duration_cast<microseconds>(end - start).count();
+};
 
 // Only for three-tuples of std::hash-able types for simplicity.
 // You can of course template this struct to allow other hash functions

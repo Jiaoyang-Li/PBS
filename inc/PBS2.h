@@ -6,7 +6,7 @@ class PBS2 : public PBS
 public:
     PBS2(const Instance& instance, bool sipp, int scrren,
         bool use_tr, bool use_ic, bool use_rr);
-    bool solve(double time_limit);
+    bool solve(clock_t time_limit);
 
 protected:
     bool use_tr;

@@ -4,7 +4,7 @@
 PVCS::PVCS(const Instance& instance, bool sipp, int screen, bool use_tr): 
     PBS(instance, sipp, screen), use_tr(use_tr) {}
 
-bool PVCS::solve(double time_limit)
+bool PVCS::solve(clock_t time_limit)
 {
     this->time_limit = time_limit;
 
@@ -14,7 +14,7 @@ bool PVCS::solve(double time_limit)
         name.resize(35, ' ');
         cout << name << ": ";
     }
-    start = clock();  // set timer
+    start = steady_clock::now();
 
     while (solution_cost == -2)  // Not yet find a solution
     {
@@ -25,14 +25,13 @@ bool PVCS::solve(double time_limit)
 
             if (terminate(curr)) break;
 
-            clock_t t1;
             if (!curr->is_expanded)
             {
                 curr->is_expanded = true;
                 if (screen > 1)
                     cout << "	Expand " << *curr << endl;
 
-                t1 = clock();
+                clock_t t1 = clock();
                 generateChild(0, curr);
                 runtime_generate_child += (double)(clock() - t1) / CLOCKS_PER_SEC;
 
@@ -122,7 +121,7 @@ bool PVCS::generateChild(int child_id, PBSNode* parent)
     assert(child_id == 0 or child_id == 1);
     parent->children[child_id] = new PBSNode(*parent);
     PBSNode* node = parent->children[child_id];
-    node->ag_weights = vector<int>(num_of_agents, 1);
+    node->ag_weights.assign(num_of_agents, 1);
 
     // Start MVC
     clock_t mvc_start = clock();
@@ -135,7 +134,6 @@ bool PVCS::generateChild(int child_id, PBSNode* parent)
     vector<int> mvc_agents(num_of_agents, -1);  // map the agent id to var id in mvc problem
     vector<bool> need_replan_agents(num_of_agents, false);
     uint64_t counter = 0;
-
 
     #ifndef NDEBUG
     if (screen > 1)
@@ -205,7 +203,7 @@ bool PVCS::generateChild(int child_id, PBSNode* parent)
     model.add(IloMinimize(env, sum_obj));
 
     IloCplex cplex(env);
-    double tmp_runtime = (double)(clock() - start) / CLOCKS_PER_SEC;
+    double tmp_runtime = (double)getDuration(start, steady_clock::now()) / CLOCKS_PER_SEC;
     cplex.setParam(IloCplex::Param::TimeLimit, time_limit - tmp_runtime);
     cplex.extract(model);
     cplex.setOut(env.getNullStream());
@@ -223,9 +221,7 @@ bool PVCS::generateChild(int child_id, PBSNode* parent)
                 // if we need to replan both agents, then only replan the one with a shorter path
                 if ((!is_a1 and is_a2) or
                     (is_a1 and is_a2 and paths[conf->a1] > paths[conf->a2]))
-                {
                     std::swap(conf->a1, conf->a2);
-                }
             }
         }
         env.end();
@@ -247,8 +243,8 @@ bool PVCS::generateChild(int child_id, PBSNode* parent)
     for (const auto& conf : parent->conflicts)
     {
         // When generating conflicts, we already set priority a1 < a2
-        priority_graph[conf->a2][conf->a1] = false;
         priority_graph[conf->a1][conf->a2] = true;
+        priority_graph[conf->a2][conf->a1] = false;
     }
     if (screen > 2)
         printPriorityGraph();
@@ -370,15 +366,9 @@ bool PVCS::generateChild(int child_id, PBSNode* parent)
                     else if (priority == 2)  // target conflict
                     {
                         if (paths[a]->size() < paths[a2]->size())
-                        {
-                            need_replan_agents[a] = true;
                             node->conflicts.emplace_back(new Conflict(a, a2, priority));
-                        }
                         else
-                        {
-                            need_replan_agents[a2] = true;
                             node->conflicts.emplace_back(new Conflict(a2, a, priority));
-                        }
                     }
                 }
             }

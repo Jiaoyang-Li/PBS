@@ -29,7 +29,7 @@ int main(int argc, char** argv)
 		("output,o", po::value<string>(), "output file for statistics")
 		("outputPaths", po::value<string>(), "output file for paths")
 		("agentNum,k", po::value<int>()->default_value(0), "number of agents")
-		("cutoffTime,t", po::value<double>()->default_value(7200), "cutoff time (seconds)")
+		("cutoffTime,t", po::value<clock_t>()->default_value(7200), "cutoff time (seconds)")
 		("screen,s", po::value<int>()->default_value(1), "screen option (0: none; 1: results; 2:all)")
 		("stats", po::value<bool>()->default_value(false), "write to files some detailed statistics")
 
@@ -63,7 +63,7 @@ int main(int argc, char** argv)
 	{
 		PBS pbs(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>());
 		// run
-		pbs.solve(vm["cutoffTime"].as<double>());
+		pbs.solve(vm["cutoffTime"].as<clock_t>());
 		if (vm.count("output"))
 			pbs.saveResults(vm["output"].as<string>(), vm["agents"].as<string>());
 		if (pbs.solution_found && vm.count("outputPaths"))
@@ -75,7 +75,7 @@ int main(int argc, char** argv)
 		PBS2 pbs2(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>(),
 			vm["tr"].as<bool>(), vm["ic"].as<bool>(), vm["rr"].as<bool>());
 		// run
-		pbs2.solve(vm["cutoffTime"].as<double>());
+		pbs2.solve(vm["cutoffTime"].as<clock_t>());
 		if (vm.count("output"))
 			pbs2.saveResults(vm["output"].as<string>(), vm["agents"].as<string>());
 		if (pbs2.solution_found && vm.count("outputPaths"))
@@ -86,7 +86,7 @@ int main(int argc, char** argv)
 	{
 		PVCS pvcs(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>(), vm["tr"].as<bool>());
 		// run
-		pvcs.solve(vm["cutoffTime"].as<double>());
+		pvcs.solve(vm["cutoffTime"].as<clock_t>());
 		if (vm.count("output"))
 			pvcs.saveResults(vm["output"].as<string>(), vm["agents"].as<string>());
 		if (pvcs.solution_found && vm.count("outputPaths"))
@@ -97,7 +97,7 @@ int main(int argc, char** argv)
 	{
 		PP pp(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>(), vm["lh"].as<bool>());
 		// run
-		pp.solve(vm["cutoffTime"].as<double>());
+		pp.solve(vm["cutoffTime"].as<clock_t>());
 		if (vm.count("output"))
 			pp.saveResults(vm["output"].as<string>(), vm["agents"].as<string>());
 		if (pp.solution_found && vm.count("outputPaths"))

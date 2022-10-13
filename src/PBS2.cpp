@@ -10,7 +10,7 @@ PBS2::PBS2(const Instance& instance, bool sipp, int screen,
     bool use_tr, bool use_ic, bool use_rr): PBS(instance, sipp, screen), 
     use_tr(use_tr), use_ic(use_ic), use_rr(use_rr) {}
 
-bool PBS2::solve(double time_limit)
+bool PBS2::solve(clock_t time_limit)
 {
     this->time_limit = time_limit;
 
@@ -21,7 +21,7 @@ bool PBS2::solve(double time_limit)
         cout << name << ": ";
     }
     // set timer
-    start = clock();
+    start = steady_clock::now();
 
     while (solution_cost == -2)  // Not yet find a solution
     {
@@ -33,7 +33,7 @@ bool PBS2::solve(double time_limit)
 
             if (terminate(curr)) break;
 
-            clock_t t1;
+            steady_clock::time_point t1;
             if (!curr->is_expanded)  // This is not a back-tracking
             {
                 curr->conflict = chooseConflict(*curr);
@@ -44,9 +44,9 @@ bool PBS2::solve(double time_limit)
                 assert(!hasHigherPriority(curr->conflict->a1, curr->conflict->a2) and 
                     !hasHigherPriority(curr->conflict->a2, curr->conflict->a1) );
 
-                t1 = clock();
+                t1 = steady_clock::now();
                 generateChild(0, curr, curr->conflict->a1, curr->conflict->a2);
-                runtime_generate_child += (double)(clock() - t1) / CLOCKS_PER_SEC;
+                runtime_generate_child += getDuration(t1, steady_clock::now());
 
                 if (curr->children[0] != nullptr)
                     pushNode(curr->children[0]);
@@ -57,9 +57,9 @@ bool PBS2::solve(double time_limit)
                     cout << "	Expand " << *curr << "	on " << *(curr->conflict) << endl;
 
                 open_list.pop();
-                t1 = clock();    
+                t1 = steady_clock::now();    
                 generateChild(1, curr, curr->conflict->a2, curr->conflict->a1);
-                runtime_generate_child += (double)(clock() - t1) / CLOCKS_PER_SEC;
+                runtime_generate_child += getDuration(t1, steady_clock::now());
 
                 if (curr->children[1] != nullptr)
                 {
@@ -126,7 +126,7 @@ bool PBS2::generateRoot()
         root->makespan = max(root->makespan, new_path.size() - 1);
         root->cost += (int)new_path.size() - 1;
     }
-    clock_t t = clock();
+    steady_clock::time_point t = steady_clock::now();
 	root->depth = 0;
     for (int a1 = 0; a1 < num_of_agents; a1++)
     {
@@ -155,7 +155,7 @@ bool PBS2::generateRoot()
             }
         }
     }
-    runtime_detect_conflicts += (double)(clock() - t) / CLOCKS_PER_SEC;
+    runtime_detect_conflicts += getDuration(t, steady_clock::now());
     num_HL_generated++;
     root->time_generated = num_HL_generated;
     if (screen > 1)
@@ -287,9 +287,9 @@ bool PBS2::generateChild(int child_id, PBSNode* parent, int low, int high)
         // Find new conflicts
         for (auto a2 = 0; a2 < num_of_agents; a2++)
         {
-            if (a2 == a or lookup_table[a2] or higher_agents.count(a2) > 0) // already in to_replan or has higher priority
-                continue;
-            auto t = clock();
+            if (a2 == a or lookup_table[a2] or higher_agents.count(a2) > 0)
+                continue;  // already in to_replan or has higher priority
+            steady_clock::time_point t = steady_clock::now();
 
             if (use_tr)
             {
@@ -327,7 +327,7 @@ bool PBS2::generateChild(int child_id, PBSNode* parent, int low, int high)
                     lookup_table[a2] = true;
                 }
             }
-            runtime_detect_conflicts += (double)(clock() - t) / CLOCKS_PER_SEC;
+            runtime_detect_conflicts += getDuration(t, steady_clock::now());
         }
     }
 
@@ -402,7 +402,7 @@ void PBS2::computeImplicitConstraints(PBSNode* node, const vector<int>& topologi
     list<int>::iterator ag_it;
     set<int> tmp_agents;
 
-    clock_t t = clock();
+    steady_clock::time_point t = steady_clock::now();
     for (auto& conf : node->conflicts)
     {
         if (conf->priority == 2) continue;
@@ -453,5 +453,5 @@ void PBS2::computeImplicitConstraints(PBSNode* node, const vector<int>& topologi
         if (num_ic_a1_a2 > num_ic_a2_a1)
             std::swap(conf->a1, conf->a2);
     }
-    runtime_implicit_constraints += (double)(clock() - t) / CLOCKS_PER_SEC;
+    runtime_implicit_constraints += getDuration(t, steady_clock::now());
 }

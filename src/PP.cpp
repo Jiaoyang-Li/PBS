@@ -15,7 +15,7 @@ PP::PP(const Instance& instance, bool sipp, int screen, bool use_LH) :
     screen(screen), num_of_agents(instance.getDefaultNumberOfAgents()),
     num_of_cols(instance.num_of_cols), map_size(instance.map_size), use_LH(use_LH)
 {
-    clock_t t = clock();
+    steady_clock::time_point t = steady_clock::now();
 
     paths = vector<Path*>(num_of_agents, nullptr);
     ordered_agents = vector<int>(num_of_agents);
@@ -29,7 +29,7 @@ PP::PP(const Instance& instance, bool sipp, int screen, bool use_LH) :
         else
             search_engines[i] = new SpaceTimeAStar(instance, i);
     }
-    runtime_preprocessing = (double) (clock() - t) / CLOCKS_PER_SEC;
+    runtime_preprocessing = getDuration(t, steady_clock::now());
 
     if (screen > 1)  // print start and goals
         instance.printAgents();
@@ -46,7 +46,7 @@ bool PP::solve(double _time_limit)
         cout << name << ": ";
     }
 
-    start = clock();  // set timer
+    start = steady_clock::now();  // set timer
 
     if (use_LH)
     {
@@ -70,24 +70,25 @@ bool PP::solve(double _time_limit)
         std::random_shuffle(ordered_agents.begin(), ordered_agents.end());
     }
     
-    while (runtime < time_limit)
+    while (runtime < time_limit * CLOCKS_PER_SEC)
     {
         ConstraintTable constraint_table(num_of_cols, map_size);
         auto p = ordered_agents.begin();
         while (p != ordered_agents.end())
         {
             int id = *p;
-            clock_t t = clock();
+            steady_clock::time_point t = steady_clock::now();
+
             Path new_path = search_engines[id]->findOptimalPath(constraint_table);
-            double new_path_runtime = (double) (clock() - t) / CLOCKS_PER_SEC;
+
+            runtime_path_finding += getDuration(t, steady_clock::now());
             num_LL_search_calls ++;
             num_LL_expanded += search_engines[id]->num_expanded;
             num_LL_generated += search_engines[id]->num_generated;
             runtime_build_CT += search_engines[id]->runtime_build_CT;
             runtime_build_CAT += search_engines[id]->runtime_build_CAT;
-            runtime_path_finding += (double)(clock() - t) / CLOCKS_PER_SEC;
-            runtime = (double)(clock()-start) / CLOCKS_PER_SEC;
-            if (runtime >= time_limit)
+            runtime = getDuration(start, steady_clock::now());
+            if (runtime >= time_limit * CLOCKS_PER_SEC)
             {
                 solution_cost = -1;
                 break;
@@ -110,7 +111,7 @@ bool PP::solve(double _time_limit)
         }
         if (p == ordered_agents.end())
         {
-            runtime = (double)(clock()-start) / CLOCKS_PER_SEC;
+            runtime = getDuration(start, steady_clock::now());
             solution_found = true;
             solution_cost = 0;
             for (const auto& p : paths)
@@ -127,11 +128,12 @@ bool PP::solve(double _time_limit)
         }
         else if (solution_cost == -1)
         {
-            runtime = (double)(clock()-start) / CLOCKS_PER_SEC;
-            cout << "Timeout" << endl;
+            runtime = getDuration(start, steady_clock::now());
+            cout << "Timeout," << (double)runtime / CLOCKS_PER_SEC << 
+                ",0,0," << num_LL_expanded << endl;
             return solution_found;
         }
-        runtime = (double)(clock()-start) / CLOCKS_PER_SEC;
+        runtime = getDuration(start, steady_clock::now());
     }
     return solution_found;
 }
@@ -159,15 +161,23 @@ void PP::saveResults(const string &fileName, const string &instanceName) const
 			"preprocessing runtime,solver name,instance name" << endl;
 		addHeads.close();
 	}
+
+    double out_runtime = (double)runtime / CLOCKS_PER_SEC;
+    double out_runtime_detect_conflicts = (double)runtime_detect_conflicts / CLOCKS_PER_SEC;
+    double out_runtime_build_CT = (double)runtime_build_CT / CLOCKS_PER_SEC;
+    double out_runtime_build_CAT = (double)runtime_build_CAT / CLOCKS_PER_SEC;
+    double out_runtime_path_finding = (double)runtime_path_finding / CLOCKS_PER_SEC;
+    double out_runtime_preprocessing = (double)runtime_preprocessing / CLOCKS_PER_SEC;
+
 	ofstream stats(fileName, std::ios::app);
-	stats << runtime << "," <<
+	stats << out_runtime << "," <<
         num_HL_expanded << "," << num_HL_generated << "," <<
-        num_LL_expanded << "," << num_LL_generated << "," << num_restart << "," << 
-        num_LL_search_calls << "," <<
+        num_LL_expanded << "," << num_LL_generated << "," << 
+        num_restart << "," << num_LL_search_calls << "," <<
         solution_cost << "," << 0 << "," <<
-		runtime_detect_conflicts << "," << runtime_build_CT << "," << runtime_build_CAT << "," <<
-		runtime_path_finding << "," << 0 << "," <<
-		runtime_preprocessing << "," << getSolverName() << "," << instanceName << endl;
+		out_runtime_detect_conflicts << "," << out_runtime_build_CT << "," << 
+        out_runtime_build_CAT << "," << out_runtime_path_finding << "," << 0 << "," <<
+		out_runtime_preprocessing << "," << getSolverName() << "," << instanceName << endl;
 	stats.close();
 }
 

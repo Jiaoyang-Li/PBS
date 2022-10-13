@@ -7,15 +7,15 @@ class PBS
 public:
 	/////////////////////////////////////////////////////////////////////////////////////
 	// stats
-	double runtime = 0;
-	double runtime_generate_child = 0; // runtimr of generating child nodes
-	double runtime_build_CT = 0; // runtimr of building constraint table
-	double runtime_build_CAT = 0; // runtime of building conflict avoidance table
-	double runtime_path_finding = 0; // runtime of finding paths for single agents
-	double runtime_detect_conflicts = 0;
-	double runtime_preprocessing = 0; // runtime of building heuristic table for the low level
-	double runtime_implicit_constraints = 0; // runtime for computing implicit constraints
-	double runtime_run_mvc = 0;  // runtime for computing MVC
+	clock_t runtime = 0;
+	clock_t runtime_generate_child = 0; // runtimr of generating child nodes
+	clock_t runtime_build_CT = 0; // runtimr of building constraint table
+	clock_t runtime_build_CAT = 0; // runtime of building conflict avoidance table
+	clock_t runtime_path_finding = 0; // runtime of finding paths for single agents
+	clock_t runtime_detect_conflicts = 0;
+	clock_t runtime_preprocessing = 0; // runtime of building heuristic table for the low level
+	clock_t runtime_implicit_constraints = 0; // runtime for computing implicit constraints
+	clock_t runtime_run_mvc = 0;  // runtime for computing MVC
 
 	uint64_t num_HL_expanded = 0;
 	uint64_t num_HL_generated = 0;
@@ -38,7 +38,7 @@ public:
 
 	////////////////////////////////////////////////////////////////////////////////////////////
 	// Runs the algorithm until the problem is solved or time is exhausted 
-	virtual bool solve(double _time_limit);
+	virtual bool solve(clock_t _time_limit);
 
 	PBS(const Instance& instance, bool sipp, int screen);
 	void clearSearchEngines();
@@ -53,9 +53,9 @@ public:
 protected:
 
     int screen;
-	double time_limit;
+	clock_t time_limit;
 	int node_limit = MAX_NODES;
-	clock_t start;
+    steady_clock::time_point start;
 	int num_of_agents;
 
     vector<int> init_agents;

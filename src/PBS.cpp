@@ -10,7 +10,7 @@ PBS::PBS(const Instance& instance, bool sipp, int screen) :
         screen(screen),
         num_of_agents(instance.getDefaultNumberOfAgents())
 {
-    clock_t t = clock();
+    steady_clock::time_point t = steady_clock::now();
 
     init_agents = vector<int>(num_of_agents);
     iota(init_agents.begin(), init_agents.end(), 0);
@@ -23,7 +23,7 @@ PBS::PBS(const Instance& instance, bool sipp, int screen) :
         else
             search_engines[i] = new SpaceTimeAStar(instance, i);
     }
-    runtime_preprocessing = (double)(clock() - t) / CLOCKS_PER_SEC;
+    runtime_preprocessing += getDuration(t, steady_clock::now());
 
     if (screen >= 2) // print start and goals
     {
@@ -32,7 +32,7 @@ PBS::PBS(const Instance& instance, bool sipp, int screen) :
 }
 
 
-bool PBS::solve(double _time_limit)
+bool PBS::solve(clock_t _time_limit)
 {
     this->time_limit = _time_limit;
 
@@ -42,7 +42,7 @@ bool PBS::solve(double _time_limit)
         name.resize(35, ' ');
         cout << name << ": ";
     }
-    start = clock();  // set timer
+    start = steady_clock::now();  // set timer
 
     generateRoot();
 
@@ -59,12 +59,12 @@ bool PBS::solve(double _time_limit)
 
         assert(!hasHigherPriority(curr->conflict->a1, curr->conflict->a2) and
                !hasHigherPriority(curr->conflict->a2, curr->conflict->a1) );
-        auto t1 = clock();
+        steady_clock::time_point t1 = steady_clock::now();
         vector<Path*> copy(paths);
         generateChild(0, curr, curr->conflict->a1, curr->conflict->a2);
         paths = copy;
         generateChild(1, curr, curr->conflict->a2, curr->conflict->a1);
-        runtime_generate_child += (double)(clock() - t1) / CLOCKS_PER_SEC;
+        runtime_generate_child += getDuration(t1, steady_clock::now());
         pushNodes(curr->children[0], curr->children[1]);
         curr->clear();
     }  // end of while loop
@@ -191,7 +191,7 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
         {
             if (a2 == a or lookup_table[a2] or higher_agents.count(a2) > 0) // already in to_replan or has higher priority
                 continue;
-            auto t = clock();
+            steady_clock::time_point t = steady_clock::now();
             if (hasConflicts(a, a2))
             {
                 node->conflicts.emplace_back(new Conflict(a, a2));
@@ -203,7 +203,7 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
                     lookup_table[a2] = true;
                 }
             }
-            runtime_detect_conflicts += (double)(clock() - t) / CLOCKS_PER_SEC;
+            runtime_detect_conflicts += getDuration(t, steady_clock::now());
         }
     }
     num_HL_generated++;
@@ -215,14 +215,14 @@ bool PBS::generateChild(int child_id, PBSNode* parent, int low, int high)
 
 bool PBS::findPathForSingleAgent(PBSNode& node, const set<int>& higher_agents, int a, Path& new_path)
 {
-    clock_t t = clock();
+    steady_clock::time_point t = steady_clock::now();
     new_path = search_engines[a]->findOptimalPath(higher_agents, paths, a);  //TODO: add runtime check to the low level
     num_LL_search_calls ++;
     num_LL_expanded += search_engines[a]->num_expanded;
     num_LL_generated += search_engines[a]->num_generated;
     runtime_build_CT += search_engines[a]->runtime_build_CT;
     runtime_build_CAT += search_engines[a]->runtime_build_CAT;
-    runtime_path_finding += (double)(clock() - t) / CLOCKS_PER_SEC;
+    runtime_path_finding += getDuration(t, steady_clock::now());
     if (new_path.empty())
         return false;
     if (isSamePath(*paths[a], new_path))
@@ -414,8 +414,8 @@ void PBS::printResults() const
 	else if (solution_cost == -3) // nodes out
 		cout << "Nodesout,";
 
-	cout << solution_cost << "," << runtime << "," <<
-         num_HL_expanded << "," << num_LL_expanded << "," << // HL_num_generated << "," << LL_num_generated << "," <<
+	cout << (double)runtime / CLOCKS_PER_SEC << "," << solution_cost << "," << 
+        num_HL_expanded << "," << num_LL_expanded << "," <<
 		dummy_start->cost << "," << endl;
 }
 
@@ -437,15 +437,26 @@ void PBS::saveResults(const string &fileName, const string &instanceName) const
             "solver name,instance name" << endl;
 		addHeads.close();
 	}
+
+    double out_runtime = (double)runtime / CLOCKS_PER_SEC;
+    double out_runtime_detect_conflicts = (double)runtime_detect_conflicts / CLOCKS_PER_SEC;
+    double out_runtime_build_CT = (double)runtime_build_CT / CLOCKS_PER_SEC;
+    double out_runtime_build_CAT = (double)runtime_build_CAT / CLOCKS_PER_SEC;
+    double out_runtime_path_finding = (double)runtime_path_finding / CLOCKS_PER_SEC;
+    double out_runtime_generate_child = (double)runtime_generate_child / CLOCKS_PER_SEC;
+    double out_runtime_preprocessing = (double)runtime_preprocessing / CLOCKS_PER_SEC;
+    double out_runtime_implicit_constraints = (double)runtime_implicit_constraints / CLOCKS_PER_SEC;
+    double out_runtime_run_mvc = (double)runtime_run_mvc / CLOCKS_PER_SEC;
+
 	ofstream stats(fileName, std::ios::app);
-	stats << runtime << "," << num_HL_expanded << "," << num_HL_generated << "," <<
+	stats << out_runtime << "," << num_HL_expanded << "," << num_HL_generated << "," <<
         num_LL_expanded << "," << num_LL_generated << "," << num_backtrack << "," << 
         num_LL_search_calls << "," << num_restart << "," <<
         solution_cost << "," << dummy_start->cost << "," <<
-		runtime_detect_conflicts << "," << runtime_build_CT << "," << runtime_build_CAT << "," <<
-		runtime_path_finding << "," << runtime_generate_child << "," <<
-		runtime_preprocessing << "," << runtime_implicit_constraints << "," << 
-        runtime_run_mvc << "," <<
+		out_runtime_detect_conflicts << "," << out_runtime_build_CT << "," << 
+        out_runtime_build_CAT << "," << out_runtime_path_finding << "," << 
+        out_runtime_generate_child << "," << out_runtime_preprocessing << "," << 
+        out_runtime_implicit_constraints << "," << out_runtime_run_mvc << "," <<
         getSolverName() << "," << instanceName << endl;
 	stats.close();
 }
@@ -557,7 +568,7 @@ string PBS::getSolverName() const
 
 bool PBS::terminate(PBSNode* curr)
 {
-	runtime = (double)(clock() - start) / CLOCKS_PER_SEC;
+    runtime = getDuration(start, steady_clock::now());
 	if (curr->conflicts.empty())  // no conflicts, we find a solution
 	{
 		solution_found = true;
@@ -573,7 +584,7 @@ bool PBS::terminate(PBSNode* curr)
 			printResults();
 		return true;
 	}
-	if (runtime > time_limit || num_HL_expanded > node_limit)
+	if (runtime > time_limit*CLOCKS_PER_SEC || num_HL_expanded > node_limit)
 	{   // time/node out
 		solution_cost = -1;
 		solution_found = false;
@@ -609,7 +620,7 @@ bool PBS::generateRoot()
         root->makespan = max(root->makespan, new_path.size() - 1);
         root->cost += (int)new_path.size() - 1;
     }
-    clock_t t = clock();
+    steady_clock::time_point t = steady_clock::now();
 	root->depth = 0;
     for (int a1 = 0; a1 < num_of_agents; a1++)
     {
@@ -621,7 +632,7 @@ bool PBS::generateRoot()
             }
         }
     }
-    runtime_detect_conflicts += (double)(clock() - t) / CLOCKS_PER_SEC;
+    runtime_detect_conflicts += getDuration(t, steady_clock::now());
     num_HL_generated++;
     root->time_generated = num_HL_generated;
     if (screen > 1)

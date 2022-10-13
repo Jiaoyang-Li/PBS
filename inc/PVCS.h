@@ -5,7 +5,7 @@ class PVCS : public PBS
 {
 public:
     PVCS(const Instance& instance, bool sipp, int screen, bool use_tr);
-    bool solve(double time_limit);
+    bool solve(clock_t time_limit);
 
 protected:
     bool use_tr;

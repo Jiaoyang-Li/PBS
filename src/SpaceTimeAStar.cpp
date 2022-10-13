@@ -24,22 +24,22 @@ Path SpaceTimeAStar::findOptimalPath(const set<int>& higher_agents, const vector
     num_generated = 0;
 
     // build constraint table
-    auto t = clock();
+    steady_clock::time_point t = steady_clock::now();
     ConstraintTable constraint_table(instance.num_of_cols, instance.map_size);
     for (int a : higher_agents)
     {
         constraint_table.insert2CT(*paths[a]);
     }
-    runtime_build_CT = (double)(clock() - t) / CLOCKS_PER_SEC;
+    runtime_build_CT = getDuration(t, steady_clock::now());
 
     if (constraint_table.constrained(start_location, 0))
     {
         return path;
     }
 
-    t = clock();
+    t = steady_clock::now();
     constraint_table.insert2CAT(agent, paths);
-    runtime_build_CAT = (double)(clock() - t) / CLOCKS_PER_SEC;
+    runtime_build_CAT = getDuration(t, steady_clock::now());
 
     // the earliest timestep that the agent can hold its goal location. The length_min is considered here.
     auto holding_time = constraint_table.getHoldingTime(goal_location, constraint_table.length_min);
