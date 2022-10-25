@@ -19,8 +19,8 @@ public:
              bool collision_v, int num_of_conflicts) :
             LLNode(loc, g_val, h_val, parent, timestep, num_of_conflicts), high_generation(high_generation),
             high_expansion(high_expansion), collision_v(collision_v) {}
-    SIPPNode(const SIPPNode& other): LLNode(other), high_generation(other.high_generation), high_expansion(other.high_expansion),
-                                     collision_v(collision_v) {}
+    // SIPPNode(const SIPPNode& other): LLNode(other), high_generation(other.high_generation), high_expansion(other.high_expansion),
+    //                                 collision_v(other.collision_v) {}
     ~SIPPNode() {}
 
     void copy(const SIPPNode& other) // copy everything except for handles
@@ -61,9 +61,9 @@ public:
 class SIPP: public SingleAgentSolver
 {
 public:
-    Path findOptimalPath(const set<int>& higher_agents, const vector<Path*>& paths, int agent);
+    Path findOptimalPath(const set<int>& higher_agents, const vector<Path*>& paths, int agent) override;
 
-    string getName() const { return "SIPP"; }
+    string getName() const override { return "SIPP"; }
 
     SIPP(const Instance& instance, int agent):
             SingleAgentSolver(instance, agent) {}
