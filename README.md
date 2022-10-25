@@ -8,6 +8,11 @@ More details can be found in our paper at AAAI 2019 [1].
 The implementation provides a SIPP option that uses SIPPS [2] (instead of state-time A*) 
 in the low level of PBS to plan paths for agents.
 
+**This branch allows agents to have zero goal locations. 
+Their goal locations are represented by -1 in the scen files (see example in my.map and my.scen).
+They can complete their paths at any location on the map 
+except for the locations in the avoid_locations set specified in the driver.cpp file.** 
+
 ## Usage
 The code requires the external library [boost](https://www.boost.org/).
 If you are using Ubantu, you can install it simply by
