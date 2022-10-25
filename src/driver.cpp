@@ -49,11 +49,13 @@ int main(int argc, char** argv)
 	// load the instance
 	Instance instance(vm["map"].as<string>(), vm["agents"].as<string>(),
 		vm["agentNum"].as<int>());
-
+    instance.avoid_locations.insert(15);
+    instance.avoid_locations.insert(45);
+    instance.avoid_locations.insert(46);
+    instance.avoid_locations.insert(58);
 	srand(0);
     PBS pbs(instance, vm["sipp"].as<bool>(), vm["screen"].as<int>());
     // run
-    double runtime = 0;
     pbs.solve(vm["cutoffTime"].as<double>());
     if (vm.count("output"))
         pbs.saveResults(vm["output"].as<string>(), vm["agents"].as<string>());
