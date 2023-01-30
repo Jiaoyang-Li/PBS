@@ -3,6 +3,7 @@
 #include <list>
 #include <vector>
 #include <set>
+#include <map>
 #include <stack>
 #include <ctime>
 #include <fstream>
