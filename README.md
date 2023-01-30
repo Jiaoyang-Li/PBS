@@ -1,4 +1,7 @@
 # PBS
+![test_ubuntu](https://github.com/Jiaoyang-Li/PBS/actions/workflows/test_ubuntu.yml/badge.svg)
+![test_macos](https://github.com/Jiaoyang-Li/PBS/actions/workflows/test_macos.yml/badge.svg)
+
 A suboptimal solver for Multi-Agent Path Finding
 
 Priority-Based Search (PBS) is an efficient suboptimal algorithm for solving Multi-Agent Path Finding (MAPF).
