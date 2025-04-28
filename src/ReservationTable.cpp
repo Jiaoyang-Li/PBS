@@ -236,11 +236,7 @@ list<tuple<int, int, int, bool, bool>> ReservationTable::get_safe_intervals(int 
         return rst;
 
     if (sit[to].empty())
-    {
         updateSIT(to);
-        if (sit[to].empty()) // no safe intervals at location "to"
-            return rst;
-    }
 
     for(auto interval : sit[to])
     {
@@ -277,11 +273,7 @@ list<tuple<int, int, int, bool, bool>> ReservationTable::get_safe_intervals(int 
 Interval ReservationTable::get_first_safe_interval(size_t location)
 {
     if (sit[location].empty())
-    {
         updateSIT(location);
-        if (sit[location].empty()) // no safe intervals at location
-            return Interval(MAX_TIMESTEP, MAX_TIMESTEP, false); // a fake interval
-    }
     return sit[location].front();
 }
 
@@ -291,11 +283,7 @@ bool ReservationTable::find_safe_interval(Interval& interval, size_t location, i
     if (t_min >= min(constraint_table.length_max, MAX_TIMESTEP - 1) + 1)
         return false;
     if (sit[location].empty())
-    {
         updateSIT(location);
-        if (sit[location].empty()) // no safe intervals at location
-            return false;
-    }
     for( auto & i : sit[location])
     {
         if ((int)get<0>(i) <= t_min && t_min < (int)get<1>(i))
