@@ -58,6 +58,8 @@ void ReservationTable::insert2SIT(int location, int t_min, int t_max)
             it = sit[location].erase(it);
         }
     }
+    if (sit[location].empty()) // the location is blocked for the entire time horizon
+        sit[location].emplace_back(MAX_TIMESTEP, MAX_TIMESTEP, false); // insert a placeholder interval
 }
 
 void ReservationTable::insertSoftConstraint2SIT(int location, int t_min, int t_max)
@@ -180,7 +182,7 @@ void ReservationTable::updateSIT(int location)
     {
         if (constraint_table.length_min > constraint_table.length_max) // the location is blocked for the entire time horizon
         {
-            sit[location].emplace_back(0, 0, false);
+            sit[location].emplace_back(MAX_TIMESTEP, MAX_TIMESTEP, false); // insert a placeholder interval
             return;
         }
         if (0 < constraint_table.length_min)
